@@ -105,7 +105,7 @@ class VisionEngine:
     def health(self) -> dict[str, Any]:
         return {
             "status": "ok",
-            "version": "0.3.0",
+            "version": "0.3.1",
             "provider": self.provider.name,
             "region": getattr(self.provider, "region", None),
             "aws_configured": self.settings.aws_configured,
@@ -132,7 +132,7 @@ class VisionEngine:
             url,
             timeout=self.settings.download_timeout_seconds,
             stream=True,
-            headers={"User-Agent": "Seiden-Vision/0.3.0"},
+            headers={"User-Agent": "Seiden-Vision/0.3.1"},
         ) as response:
             response.raise_for_status()
             content_type = response.headers.get("Content-Type", "").split(";")[0].lower()
@@ -296,6 +296,12 @@ class VisionEngine:
                 publish_results = self.ha_client.publish_analysis(
                     base, self.database.stats()
                 )
+                management = self.database.management_stats(
+                    self.settings.management_timezone,
+                    self.settings.management_trend_days,
+                    self.settings.aws_price_per_1000_images,
+                )
+                publish_results.update(self.ha_client.publish_management(management))
                 LOGGER.info(
                     "HA Publish.......... %s",
                     "OK" if all(publish_results.values()) else "PARCIAL/FALHA",
@@ -406,6 +412,12 @@ class VisionEngine:
                     last_processing_ms=self.last_processing_ms,
                     region=getattr(self.provider, "region", None),
                 )
+                management = self.database.management_stats(
+                    self.settings.management_timezone,
+                    self.settings.management_trend_days,
+                    self.settings.aws_price_per_1000_images,
+                )
+                results.update(self.ha_client.publish_management(management))
                 if not all(results.values()):
-                    LOGGER.debug("Publicação operacional parcial: %s", results)
+                    LOGGER.debug("Publicação operacional/gerencial parcial: %s", results)
             self.stop_event.wait(30)

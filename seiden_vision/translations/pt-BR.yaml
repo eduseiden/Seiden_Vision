@@ -65,3 +65,8 @@ configuration:
   aws_max_attempts:
     name: Tentativas AWS
     description: Número máximo de tentativas usando o modo padrão de retry do SDK.
+
+  management_timezone:
+    name: Fuso horário gerencial
+  management_trend_days:
+    name: Dias de tendência gerencial

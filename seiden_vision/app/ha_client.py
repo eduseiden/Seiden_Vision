@@ -8,7 +8,7 @@ import requests
 
 LOGGER = logging.getLogger(__name__)
 BASE_URL = "http://supervisor/core/api"
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 
 
 class HomeAssistantClient:
@@ -138,6 +138,42 @@ class HomeAssistantClient:
                 },
             )
         return results
+
+
+    def publish_management(self, data: dict[str, Any]) -> dict[str, bool]:
+        common = {
+            "timezone": data.get("timezone"),
+            "generated_at": data.get("generated_at"),
+            "events_yesterday": data.get("events_yesterday"),
+            "variation_vs_yesterday_percent": data.get("variation_vs_yesterday_percent"),
+            "average_events_7d": data.get("average_events_7d"),
+            "variation_vs_7d_percent": data.get("variation_vs_7d_percent"),
+            "hourly_today": data.get("hourly_today", []),
+            "daily_trend": data.get("daily_trend", []),
+            "sources_today": data.get("sources_today", []),
+            "people_today": data.get("people_today", []),
+            "recent_events": data.get("recent_events", []),
+        }
+        return {
+            "events_today": self.set_state("sensor.seiden_vision_events_today", data.get("events_today", 0), {
+                "friendly_name": "Seiden Vision - Eventos hoje", "icon": "mdi:account-arrow-right-outline", **common}),
+            "unique_people": self.set_state("sensor.seiden_vision_unique_people_today", data.get("unique_people_today", 0), {
+                "friendly_name": "Seiden Vision - Pessoas distintas hoje", "icon": "mdi:account-group-outline", "people_today": data.get("people_today", [])}),
+            "alerts_today": self.set_state("sensor.seiden_vision_alerts_today", data.get("alerts_today", 0), {
+                "friendly_name": "Seiden Vision - Alertas hoje", "icon": "mdi:alert-outline", "no_face_today": data.get("no_face_today", 0), "multiple_faces_today": data.get("multiple_faces_today", 0), "duplicates_today": data.get("duplicates_today", 0), "errors_today": data.get("errors_today", 0)}),
+            "average_quality": self.set_state("sensor.seiden_vision_average_quality_today", data.get("average_quality_today", 0), {
+                "friendly_name": "Seiden Vision - Qualidade média hoje", "icon": "mdi:image-check-outline", "unit_of_measurement": "%"}),
+            "average_processing": self.set_state("sensor.seiden_vision_average_processing_today", data.get("average_processing_ms_today", 0), {
+                "friendly_name": "Seiden Vision - Processamento médio hoje", "icon": "mdi:speedometer", "unit_of_measurement": "ms", "average_total_ms_today": data.get("average_total_ms_today", 0)}),
+            "cost_today": self.set_state("sensor.seiden_vision_estimated_cost_today", data.get("estimated_cost_today_usd", 0), {
+                "friendly_name": "Seiden Vision - Custo estimado hoje", "icon": "mdi:currency-usd", "unit_of_measurement": "USD"}),
+            "peak_hour": self.set_state("sensor.seiden_vision_peak_hour_today", data.get("peak_hour_today", "—"), {
+                "friendly_name": "Seiden Vision - Horário de pico hoje", "icon": "mdi:chart-timeline-variant", "first_event_today": data.get("first_event_today"), "last_event_today": data.get("last_event_today")}),
+            "busiest_source": self.set_state("sensor.seiden_vision_busiest_source_today", data.get("busiest_source_today", "—"), {
+                "friendly_name": "Seiden Vision - Fonte mais movimentada hoje", "icon": "mdi:door-open", "sources_today": data.get("sources_today", [])}),
+            "no_face": self.set_state("sensor.seiden_vision_no_face_today", data.get("no_face_today", 0), {"friendly_name": "Seiden Vision - Sem face hoje", "icon": "mdi:account-off-outline"}),
+            "multiple_faces": self.set_state("sensor.seiden_vision_multiple_faces_today", data.get("multiple_faces_today", 0), {"friendly_name": "Seiden Vision - Múltiplas faces hoje", "icon": "mdi:account-multiple-outline"}),
+        }
 
     def publish_analysis(self, record: dict[str, Any], stats: dict[str, Any]) -> dict[str, bool]:
         common = {

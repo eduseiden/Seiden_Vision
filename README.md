@@ -1,5 +1,5 @@
-# Seiden Vision 0.3.0
+# Seiden Vision 0.3.1
 
-Motor de visão computacional e inteligência operacional para Home Assistant, com adaptadores Mock e AWS Rekognition.
+Motor de visão computacional e inteligência operacional para Home Assistant.
 
-A versão 0.3.0 acrescenta avaliação independente de qualidade, alertas operacionais, métricas de custo/cota e publicação ampliada no Home Assistant.
+A versão 0.3.1 adiciona indicadores gerenciais, tendências diárias e horárias, métricas por pessoa e fonte, comparações com ontem e média de sete dias e publicação de sensores gerenciais no Home Assistant.

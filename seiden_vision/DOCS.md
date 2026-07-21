@@ -1,17 +1,17 @@
-# Seiden Vision 0.3.0
+# Seiden Vision 0.3.1
 
-A versão 0.3.0 acrescenta uma camada de inteligência operacional independente do provedor. A resposta normalizada continua armazenada integralmente em `result_json`, agora com o bloco `operational`.
+## Indicadores gerenciais
 
-## Novas opções
+A versão publica sensores agregados para dashboards de POC no Home Assistant e fornece APIs independentes para evolução futura em Grafana.
 
-- `quality_min_brightness`: luminosidade mínima aceitável.
-- `quality_min_sharpness`: nitidez mínima aceitável.
-- `aws_price_per_1000_images`: preço usado apenas para estimativa local de custo.
+### APIs
 
-## Novas entidades
+- `/api/v1/management/summary`
+- `/api/v1/management/daily`
+- `/api/v1/management/hourly`
+- `/api/v1/management/people`
+- `/api/v1/management/sources`
 
-- `sensor.seiden_vision_last_quality`
-- `sensor.seiden_vision_last_alert`
-- `sensor.seiden_vision_last_total_time`
+### Segurança
 
-O sensor `sensor.seiden_vision_last_result` passa a publicar também emoções completas, pose, óculos, óculos escuros, barba, bigode, boca aberta, bounding box e bloco operacional.
+O dashboard gerencial no Home Assistant é apenas para POC local. Em produção, o Grafana deverá consumir um banco ou API próprios, sem expor o Home Assistant.

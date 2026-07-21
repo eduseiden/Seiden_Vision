@@ -40,6 +40,8 @@ class Settings:
     quality_min_brightness: int = 35
     quality_min_sharpness: int = 40
     aws_price_per_1000_images: float = 1.0
+    management_timezone: str = "America/Sao_Paulo"
+    management_trend_days: int = 14
 
     @property
     def supervisor_token(self) -> str:

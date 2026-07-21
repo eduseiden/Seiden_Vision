@@ -13,7 +13,7 @@ from engine import AnalysisJob, VisionEngine
 from ha_client import HomeAssistantClient
 
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 settings = load_settings()
 
 logging.basicConfig(
@@ -77,6 +77,39 @@ def analyses():
     except ValueError:
         limit = 50
     return jsonify({"items": database.list_analyses(limit)})
+
+
+@app.get("/api/v1/management/summary")
+def management_summary():
+    return jsonify(database.management_stats(
+        settings.management_timezone,
+        settings.management_trend_days,
+        settings.aws_price_per_1000_images,
+    ))
+
+
+@app.get("/api/v1/management/daily")
+def management_daily():
+    data = database.management_stats(settings.management_timezone, settings.management_trend_days, settings.aws_price_per_1000_images)
+    return jsonify({"timezone": data["timezone"], "items": data["daily_trend"]})
+
+
+@app.get("/api/v1/management/hourly")
+def management_hourly():
+    data = database.management_stats(settings.management_timezone, settings.management_trend_days, settings.aws_price_per_1000_images)
+    return jsonify({"timezone": data["timezone"], "items": data["hourly_today"]})
+
+
+@app.get("/api/v1/management/people")
+def management_people():
+    data = database.management_stats(settings.management_timezone, settings.management_trend_days, settings.aws_price_per_1000_images)
+    return jsonify({"timezone": data["timezone"], "items": data["people_today"]})
+
+
+@app.get("/api/v1/management/sources")
+def management_sources():
+    data = database.management_stats(settings.management_timezone, settings.management_trend_days, settings.aws_price_per_1000_images)
+    return jsonify({"timezone": data["timezone"], "items": data["sources_today"]})
 
 
 @app.post("/api/v1/analyze")
