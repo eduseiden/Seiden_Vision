@@ -8,6 +8,7 @@ import requests
 
 LOGGER = logging.getLogger(__name__)
 BASE_URL = "http://supervisor/core/api"
+VERSION = "0.1.1"
 
 
 class HomeAssistantClient:
@@ -61,7 +62,74 @@ class HomeAssistantClient:
             LOGGER.warning("Falha ao publicar %s: %s", entity_id, exc)
             return False
 
-    def publish_analysis(self, record: dict[str, Any], stats: dict[str, Any]) -> None:
+    def publish_operational(
+        self,
+        *,
+        provider: str,
+        queue_size: int,
+        uptime_seconds: int,
+        last_processing_ms: int | None = None,
+    ) -> dict[str, bool]:
+        results = {
+            "status": self.set_state(
+                "sensor.seiden_vision_status",
+                "online",
+                {
+                    "friendly_name": "Seiden Vision - Status",
+                    "icon": "mdi:check-network-outline",
+                    "version": VERSION,
+                    "provider": provider,
+                },
+            ),
+            "queue": self.set_state(
+                "sensor.seiden_vision_queue",
+                queue_size,
+                {
+                    "friendly_name": "Seiden Vision - Fila",
+                    "icon": "mdi:tray-full",
+                    "unit_of_measurement": "itens",
+                },
+            ),
+            "provider": self.set_state(
+                "sensor.seiden_vision_provider",
+                provider,
+                {
+                    "friendly_name": "Seiden Vision - Provider",
+                    "icon": "mdi:brain",
+                },
+            ),
+            "version": self.set_state(
+                "sensor.seiden_vision_version",
+                VERSION,
+                {
+                    "friendly_name": "Seiden Vision - Versão",
+                    "icon": "mdi:tag-outline",
+                },
+            ),
+            "uptime": self.set_state(
+                "sensor.seiden_vision_uptime",
+                uptime_seconds,
+                {
+                    "friendly_name": "Seiden Vision - Uptime",
+                    "icon": "mdi:timer-outline",
+                    "unit_of_measurement": "s",
+                    "device_class": "duration",
+                },
+            ),
+        }
+        if last_processing_ms is not None:
+            results["last_processing"] = self.set_state(
+                "sensor.seiden_vision_last_processing",
+                last_processing_ms,
+                {
+                    "friendly_name": "Seiden Vision - Último processamento",
+                    "icon": "mdi:speedometer",
+                    "unit_of_measurement": "ms",
+                },
+            )
+        return results
+
+    def publish_analysis(self, record: dict[str, Any], stats: dict[str, Any]) -> dict[str, bool]:
         common = {
             "friendly_name": "Seiden Vision - Última análise",
             "icon": "mdi:face-recognition",
@@ -78,27 +146,28 @@ class HomeAssistantClient:
             "status": record.get("status"),
             "created_at": record.get("created_at"),
         }
-        self.set_state(
-            "sensor.seiden_vision_last_result",
-            record.get("dominant_emotion") or record.get("status", "unknown"),
-            common,
+        results = {
+            "last_result": self.set_state(
+                "sensor.seiden_vision_last_result",
+                record.get("dominant_emotion") or record.get("status", "unknown"),
+                common,
+            ),
+            "analyses_today": self.set_state(
+                "sensor.seiden_vision_analyses_today",
+                stats.get("today", 0),
+                {
+                    "friendly_name": "Seiden Vision - Análises hoje",
+                    "icon": "mdi:counter",
+                    **stats,
+                },
+            ),
+        }
+        results.update(
+            self.publish_operational(
+                provider=str(record.get("provider") or "unknown"),
+                queue_size=int(record.get("queue_size") or 0),
+                uptime_seconds=int(record.get("uptime_seconds") or 0),
+                last_processing_ms=record.get("processing_ms"),
+            )
         )
-        self.set_state(
-            "sensor.seiden_vision_analyses_today",
-            stats.get("today", 0),
-            {
-                "friendly_name": "Seiden Vision - Análises hoje",
-                "icon": "mdi:counter",
-                **stats,
-            },
-        )
-        self.set_state(
-            "sensor.seiden_vision_status",
-            "online",
-            {
-                "friendly_name": "Seiden Vision - Status",
-                "icon": "mdi:check-network-outline",
-                "version": "0.1.0",
-                "provider": record.get("provider"),
-            },
-        )
+        return results

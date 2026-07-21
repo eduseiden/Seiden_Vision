@@ -2,7 +2,7 @@
 
 Plataforma local de orquestração e análise de imagens para Home Assistant OS.
 
-A versão **0.1.0** estabelece a fundação do produto:
+A versão **0.1.1** estabelece a fundação do produto:
 
 - add-on para Home Assistant OS;
 - suporte a `amd64` e `aarch64`;
@@ -42,4 +42,4 @@ Seiden_Vision/
 
 Na interface web, informe uma URL de imagem acessível pelo Raspberry Pi ou pelo mini PC e clique em **Analisar**.
 
-A versão 0.1.0 utiliza um provedor simulado. A integração real com AWS Rekognition será adicionada na próxima fase.
+A versão 0.1.1 utiliza um provedor simulado. A integração real com AWS Rekognition será adicionada na próxima fase.

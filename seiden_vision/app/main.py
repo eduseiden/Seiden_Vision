@@ -1,8 +1,7 @@
 from __future__ import annotations
 
+import atexit
 import logging
-import signal
-import sys
 from datetime import datetime, timezone
 from typing import Any
 
@@ -14,6 +13,7 @@ from engine import AnalysisJob, VisionEngine
 from ha_client import HomeAssistantClient
 
 
+VERSION = "0.1.1"
 settings = load_settings()
 
 logging.basicConfig(
@@ -30,6 +30,8 @@ ha_client = HomeAssistantClient(
 engine = VisionEngine(settings, database, ha_client)
 
 app = Flask(__name__)
+engine.start()
+atexit.register(engine.stop)
 
 
 @app.after_request
@@ -43,7 +45,7 @@ def add_headers(response):
 def index():
     return render_template(
         "index.html",
-        version="0.1.0",
+        version=VERSION,
         provider=settings.provider,
         source_enabled=settings.source_enabled,
         source_name=settings.source_name,
@@ -107,35 +109,24 @@ def clear_analyses():
 
 @app.post("/api/v1/publish-test")
 def publish_test():
-    ok = ha_client.set_state(
-        "sensor.seiden_vision_status",
-        "online",
-        {
-            "friendly_name": "Seiden Vision - Status",
-            "icon": "mdi:check-network-outline",
-            "version": "0.1.0",
-            "provider": settings.provider,
-            "test": True,
-        },
+    results = ha_client.publish_operational(
+        provider=settings.provider,
+        queue_size=engine.queue.qsize(),
+        uptime_seconds=engine.uptime_seconds(),
+        last_processing_ms=engine.last_processing_ms,
     )
-    if not ok:
-        return jsonify({"status": "error", "message": "Home Assistant API indisponível."}), 503
-    return jsonify({"status": "ok"})
+    if not results or not all(results.values()):
+        return jsonify({
+            "status": "error",
+            "message": "Publicação parcial ou Home Assistant API indisponível.",
+            "results": results,
+        }), 503
+    return jsonify({"status": "ok", "results": results})
 
 
-def shutdown_handler(signum, frame):
-    LOGGER.info("Encerrando Seiden Vision...")
-    engine.stop()
-    sys.exit(0)
-
-
-if __name__ == "__main__":
-    signal.signal(signal.SIGTERM, shutdown_handler)
-    signal.signal(signal.SIGINT, shutdown_handler)
-    engine.start()
-    LOGGER.info(
-        "Seiden Vision 0.1.0 iniciado. Provider=%s, source=%s",
-        settings.provider,
-        settings.source_enabled,
-    )
-    app.run(host="0.0.0.0", port=8099, threaded=True, use_reloader=False)
+LOGGER.info(
+    "Seiden Vision %s carregado. Provider=%s, source=%s",
+    VERSION,
+    settings.provider,
+    settings.source_enabled,
+)

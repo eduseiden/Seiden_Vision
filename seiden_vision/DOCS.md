@@ -1,4 +1,4 @@
-# Seiden Vision 0.1.0
+# Seiden Vision 0.1.1
 
 ## Finalidade
 
@@ -62,3 +62,17 @@ A interface oferece:
 
 O provedor `mock` gera resultados determinísticos a partir do hash da imagem. Ele não realiza
 análise facial real. Sua finalidade é validar a infraestrutura completa sem consumo de serviços externos.
+
+
+## Sensores operacionais da versão 0.1.1
+
+- `sensor.seiden_vision_status`
+- `sensor.seiden_vision_queue`
+- `sensor.seiden_vision_provider`
+- `sensor.seiden_vision_version`
+- `sensor.seiden_vision_uptime`
+- `sensor.seiden_vision_last_processing`
+- `sensor.seiden_vision_last_result`
+- `sensor.seiden_vision_analyses_today`
+
+O servidor web agora utiliza Gunicorn com um único processo e múltiplas threads. O único processo é intencional: evita que várias instâncias do watcher processem a mesma fotografia.
