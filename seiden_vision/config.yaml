@@ -1,0 +1,57 @@
+name: Seiden Vision
+version: "0.1.0"
+slug: seiden_vision
+description: Plataforma local de orquestração e análise de imagens
+url: https://github.com/eduseiden/Seiden_Vision
+stage: experimental
+startup: application
+boot: auto
+init: false
+arch:
+  - amd64
+  - aarch64
+
+homeassistant_api: true
+hassio_api: true
+
+ingress: true
+ingress_port: 8099
+ingress_panel: true
+panel_icon: mdi:face-recognition
+panel_title: Seiden Vision
+
+map:
+  - type: addon_config
+    read_only: false
+
+options:
+  log_level: info
+  provider: mock
+  minimum_confidence: 70
+  duplicate_window_minutes: 1440
+  download_timeout_seconds: 10
+  maximum_image_size_mb: 8
+  retain_images: false
+  history_retention_days: 90
+  publish_to_home_assistant: true
+  source_enabled: true
+  source_name: Entrada Principal
+  source_entity_id: sensor.seiden_evo_last_person
+  source_photo_attribute: photo_url
+  poll_interval_seconds: 3
+
+schema:
+  log_level: list(trace|debug|info|warning|error|critical)
+  provider: list(mock)
+  minimum_confidence: int(0,100)
+  duplicate_window_minutes: int(0,10080)
+  download_timeout_seconds: int(1,60)
+  maximum_image_size_mb: int(1,25)
+  retain_images: bool
+  history_retention_days: int(1,3650)
+  publish_to_home_assistant: bool
+  source_enabled: bool
+  source_name: str
+  source_entity_id: str
+  source_photo_attribute: str
+  poll_interval_seconds: int(2,300)

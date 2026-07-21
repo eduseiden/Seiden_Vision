@@ -1,0 +1,45 @@
+configuration:
+  log_level:
+    name: Log level
+    description: Controls log verbosity.
+  provider:
+    name: Vision provider
+    description: Version 0.1.0 provides the mock provider.
+  minimum_confidence:
+    name: Minimum confidence
+    description: Minimum confidence for a valid result.
+  duplicate_window_minutes:
+    name: Duplicate window
+    description: Minutes during which an identical image will not be processed again.
+  download_timeout_seconds:
+    name: Download timeout
+    description: Maximum image download time.
+  maximum_image_size_mb:
+    name: Maximum image size
+    description: Maximum accepted image size in megabytes.
+  retain_images:
+    name: Retain images
+    description: Store processed images locally.
+  history_retention_days:
+    name: History retention
+    description: Number of days kept in the local database.
+  publish_to_home_assistant:
+    name: Publish to Home Assistant
+    description: Update Seiden Vision sensors in Home Assistant.
+  source_enabled:
+    name: Watch Home Assistant source
+    description: Poll the configured entity for new image URLs.
+  source_name:
+    name: Source name
+    description: Friendly capture point name.
+  source_entity_id:
+    name: Source entity
+    description: Entity containing the image URL.
+  source_photo_attribute:
+    name: Photo attribute
+    description: Attribute containing the image URL.
+  poll_interval_seconds:
+    name: Poll interval
+    description: Seconds between entity checks.
+network:
+  8099/tcp: Seiden Vision web interface

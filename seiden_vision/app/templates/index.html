@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Seiden Vision</title>
+  <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Seiden Vision</h1>
+      <p>Operational Image Intelligence</p>
+    </div>
+    <span class="version">v{{ version }}</span>
+  </header>
+
+  <main>
+    <section class="status-grid">
+      <article class="metric">
+        <span>Status</span>
+        <strong id="healthStatus">Carregando...</strong>
+      </article>
+      <article class="metric">
+        <span>Análises hoje</span>
+        <strong id="todayCount">—</strong>
+      </article>
+      <article class="metric">
+        <span>Fila</span>
+        <strong id="queueSize">—</strong>
+      </article>
+      <article class="metric">
+        <span>Provider</span>
+        <strong>{{ provider }}</strong>
+      </article>
+    </section>
+
+    <section class="panel">
+      <h2>Teste manual</h2>
+      <p>Informe uma URL acessível a partir do equipamento que executa o HAOS.</p>
+      <form id="analyzeForm">
+        <label>
+          Fonte
+          <input id="source" value="{{ source_name }}" required>
+        </label>
+        <label class="wide">
+          URL da imagem
+          <input id="imageUrl" type="url" placeholder="http://192.168.1.100/foto.jpg" required>
+        </label>
+        <label>
+          Pessoa (opcional)
+          <input id="person" placeholder="Nome identificado">
+        </label>
+        <button type="submit">Analisar</button>
+      </form>
+      <div id="message" class="message hidden"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">
+        <div>
+          <h2>Histórico</h2>
+          <p>Resultados do Mock Provider. Nenhuma inferência real é feita nesta versão.</p>
+        </div>
+        <div class="actions">
+          <button id="publishTest" class="secondary">Testar HA</button>
+          <button id="refresh" class="secondary">Atualizar</button>
+          <button id="clearHistory" class="danger">Limpar</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Fonte</th>
+              <th>Pessoa</th>
+              <th>Status</th>
+              <th>Resultado</th>
+              <th>Confiança</th>
+              <th>Tempo</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr><td colspan="7">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Seiden Tech · Seiden Vision {{ version }}
+  </footer>
+  <script src="static/app.js"></script>
+</body>
+</html>

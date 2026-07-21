@@ -1,0 +1,104 @@
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+import requests
+
+
+LOGGER = logging.getLogger(__name__)
+BASE_URL = "http://supervisor/core/api"
+
+
+class HomeAssistantClient:
+    def __init__(self, token: str, timeout: int = 10) -> None:
+        self.token = token
+        self.timeout = timeout
+        self.session = requests.Session()
+        if token:
+            self.session.headers.update({
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            })
+
+    @property
+    def available(self) -> bool:
+        return bool(self.token)
+
+    def get_state(self, entity_id: str) -> dict[str, Any] | None:
+        if not self.available:
+            return None
+        try:
+            response = self.session.get(
+                f"{BASE_URL}/states/{entity_id}", timeout=self.timeout
+            )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as exc:
+            LOGGER.warning("Falha ao ler entidade %s: %s", entity_id, exc)
+            return None
+
+    def set_state(
+        self,
+        entity_id: str,
+        state: str | int | float,
+        attributes: dict[str, Any] | None = None,
+    ) -> bool:
+        if not self.available:
+            return False
+        payload = {"state": str(state), "attributes": attributes or {}}
+        try:
+            response = self.session.post(
+                f"{BASE_URL}/states/{entity_id}",
+                json=payload,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            return True
+        except requests.RequestException as exc:
+            LOGGER.warning("Falha ao publicar %s: %s", entity_id, exc)
+            return False
+
+    def publish_analysis(self, record: dict[str, Any], stats: dict[str, Any]) -> None:
+        common = {
+            "friendly_name": "Seiden Vision - Última análise",
+            "icon": "mdi:face-recognition",
+            "source": record.get("source"),
+            "person": record.get("person"),
+            "face_count": record.get("face_count"),
+            "confidence": record.get("confidence"),
+            "brightness": record.get("brightness"),
+            "sharpness": record.get("sharpness"),
+            "processing_ms": record.get("processing_ms"),
+            "image_url": record.get("image_url"),
+            "analysis_id": record.get("id"),
+            "provider": record.get("provider"),
+            "status": record.get("status"),
+            "created_at": record.get("created_at"),
+        }
+        self.set_state(
+            "sensor.seiden_vision_last_result",
+            record.get("dominant_emotion") or record.get("status", "unknown"),
+            common,
+        )
+        self.set_state(
+            "sensor.seiden_vision_analyses_today",
+            stats.get("today", 0),
+            {
+                "friendly_name": "Seiden Vision - Análises hoje",
+                "icon": "mdi:counter",
+                **stats,
+            },
+        )
+        self.set_state(
+            "sensor.seiden_vision_status",
+            "online",
+            {
+                "friendly_name": "Seiden Vision - Status",
+                "icon": "mdi:check-network-outline",
+                "version": "0.1.0",
+                "provider": record.get("provider"),
+            },
+        )

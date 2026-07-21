@@ -1,0 +1,45 @@
+configuration:
+  log_level:
+    name: Nível de log
+    description: Define o nível de detalhamento dos registros.
+  provider:
+    name: Provedor de visão
+    description: Na versão 0.1.0 está disponível apenas o simulador.
+  minimum_confidence:
+    name: Confiança mínima
+    description: Limite mínimo para considerar um resultado válido.
+  duplicate_window_minutes:
+    name: Janela de duplicidade
+    description: Minutos durante os quais uma imagem idêntica não será processada novamente. Use zero para desativar.
+  download_timeout_seconds:
+    name: Tempo limite do download
+    description: Tempo máximo para baixar uma imagem.
+  maximum_image_size_mb:
+    name: Tamanho máximo da imagem
+    description: Limite de tamanho aceito em megabytes.
+  retain_images:
+    name: Manter imagens
+    description: Salva localmente as imagens processadas.
+  history_retention_days:
+    name: Retenção do histórico
+    description: Quantidade de dias mantidos no banco local.
+  publish_to_home_assistant:
+    name: Publicar no Home Assistant
+    description: Atualiza sensores do Seiden Vision no Home Assistant.
+  source_enabled:
+    name: Observar fonte do Home Assistant
+    description: Ativa a leitura periódica da entidade configurada.
+  source_name:
+    name: Nome da fonte
+    description: Nome amigável do ponto de captura.
+  source_entity_id:
+    name: Entidade da fonte
+    description: Entidade que contém a URL da imagem.
+  source_photo_attribute:
+    name: Atributo da fotografia
+    description: Nome do atributo que contém a URL.
+  poll_interval_seconds:
+    name: Intervalo de consulta
+    description: Intervalo em segundos para verificar a entidade.
+network:
+  8099/tcp: Interface web do Seiden Vision
