@@ -109,3 +109,6 @@ footer { text-align: center; color: var(--muted); padding: 5px 20px 25px; font-s
   .panel-title { display: block; }
   .actions { margin-bottom: 15px; flex-wrap: wrap; }
 }
+
+.test-actions { margin-top: 12px; align-items: center; }
+.hint { color: var(--muted); font-size: .82rem; }

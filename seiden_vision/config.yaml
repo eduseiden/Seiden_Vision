@@ -1,5 +1,5 @@
 name: Seiden Vision
-version: "0.1.1"
+version: "0.2.0"
 slug: seiden_vision
 description: Plataforma local de orquestração e análise de imagens
 url: https://github.com/eduseiden/Seiden_Vision
@@ -30,7 +30,7 @@ options:
   minimum_confidence: 70
   duplicate_window_minutes: 1440
   download_timeout_seconds: 10
-  maximum_image_size_mb: 8
+  maximum_image_size_mb: 5
   retain_images: false
   history_retention_days: 90
   publish_to_home_assistant: true
@@ -39,14 +39,20 @@ options:
   source_entity_id: sensor.seiden_evo_last_person
   source_photo_attribute: photo_url
   poll_interval_seconds: 3
+  aws_region: us-east-1
+  aws_max_analyses_per_day: 1000
+  aws_store_raw_response: true
+  aws_connect_timeout_seconds: 5
+  aws_read_timeout_seconds: 20
+  aws_max_attempts: 3
 
 schema:
   log_level: list(trace|debug|info|warning|error|critical)
-  provider: list(mock)
+  provider: list(mock|aws_rekognition)
   minimum_confidence: int(0,100)
   duplicate_window_minutes: int(0,10080)
   download_timeout_seconds: int(1,60)
-  maximum_image_size_mb: int(1,25)
+  maximum_image_size_mb: int(1,5)
   retain_images: bool
   history_retention_days: int(1,3650)
   publish_to_home_assistant: bool
@@ -55,3 +61,11 @@ schema:
   source_entity_id: str
   source_photo_attribute: str
   poll_interval_seconds: int(2,300)
+  aws_region: str
+  aws_access_key_id: password?
+  aws_secret_access_key: password?
+  aws_max_analyses_per_day: int(1,1000000)
+  aws_store_raw_response: bool
+  aws_connect_timeout_seconds: int(1,30)
+  aws_read_timeout_seconds: int(1,120)
+  aws_max_attempts: int(1,10)

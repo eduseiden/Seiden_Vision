@@ -13,7 +13,7 @@ from engine import AnalysisJob, VisionEngine
 from ha_client import HomeAssistantClient
 
 
-VERSION = "0.1.1"
+VERSION = "0.2.0"
 settings = load_settings()
 
 logging.basicConfig(
@@ -107,6 +107,19 @@ def clear_analyses():
     return jsonify({"status": "ok", "deleted": count})
 
 
+@app.post("/api/v1/provider/test")
+def provider_test():
+    payload: dict[str, Any] = request.get_json(silent=True) or {}
+    image_url = str(payload.get("image_url", "")).strip() or None
+    try:
+        return jsonify(engine.test_provider(image_url))
+    except (ValueError, RuntimeError) as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 400
+    except Exception as exc:
+        LOGGER.exception("Falha no teste do adaptador: %s", exc)
+        return jsonify({"status": "error", "message": str(exc)}), 502
+
+
 @app.post("/api/v1/publish-test")
 def publish_test():
     results = ha_client.publish_operational(
@@ -114,6 +127,7 @@ def publish_test():
         queue_size=engine.queue.qsize(),
         uptime_seconds=engine.uptime_seconds(),
         last_processing_ms=engine.last_processing_ms,
+        region=getattr(engine.provider, "region", None),
     )
     if not results or not all(results.values()):
         return jsonify({

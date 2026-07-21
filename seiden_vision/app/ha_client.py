@@ -8,7 +8,7 @@ import requests
 
 LOGGER = logging.getLogger(__name__)
 BASE_URL = "http://supervisor/core/api"
-VERSION = "0.1.1"
+VERSION = "0.2.0"
 
 
 class HomeAssistantClient:
@@ -69,6 +69,7 @@ class HomeAssistantClient:
         queue_size: int,
         uptime_seconds: int,
         last_processing_ms: int | None = None,
+        region: str | None = None,
     ) -> dict[str, bool]:
         results = {
             "status": self.set_state(
@@ -79,6 +80,7 @@ class HomeAssistantClient:
                     "icon": "mdi:check-network-outline",
                     "version": VERSION,
                     "provider": provider,
+                    "region": region,
                 },
             ),
             "queue": self.set_state(
@@ -96,6 +98,14 @@ class HomeAssistantClient:
                 {
                     "friendly_name": "Seiden Vision - Provider",
                     "icon": "mdi:brain",
+                },
+            ),
+            "region": self.set_state(
+                "sensor.seiden_vision_region",
+                region or "local",
+                {
+                    "friendly_name": "Seiden Vision - Região",
+                    "icon": "mdi:map-marker-radius-outline",
                 },
             ),
             "version": self.set_state(
@@ -140,6 +150,14 @@ class HomeAssistantClient:
             "brightness": record.get("brightness"),
             "sharpness": record.get("sharpness"),
             "processing_ms": record.get("processing_ms"),
+            "download_ms": record.get("download_ms"),
+            "region": (record.get("result") or {}).get("region"),
+            "request_id": (record.get("result") or {}).get("request_id"),
+            "age_range": (record.get("result") or {}).get("age_range"),
+            "gender": (record.get("result") or {}).get("gender"),
+            "smile": (record.get("result") or {}).get("smile"),
+            "eyes_open": (record.get("result") or {}).get("eyes_open"),
+            "face_occluded": (record.get("result") or {}).get("face_occluded"),
             "image_url": record.get("image_url"),
             "analysis_id": record.get("id"),
             "provider": record.get("provider"),
@@ -168,6 +186,7 @@ class HomeAssistantClient:
                 queue_size=int(record.get("queue_size") or 0),
                 uptime_seconds=int(record.get("uptime_seconds") or 0),
                 last_processing_ms=record.get("processing_ms"),
+                region=(record.get("result") or {}).get("region"),
             )
         )
         return results

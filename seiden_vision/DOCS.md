@@ -1,78 +1,53 @@
-# Seiden Vision 0.1.1
+# Seiden Vision 0.2.0
 
 ## Finalidade
 
-Esta versão valida a arquitetura local do produto antes da integração com AWS Rekognition.
+A versão 0.2.0 introduz análise facial real por meio do Amazon Rekognition, mantendo o Mock Adapter para testes sem custo.
 
-## Configuração
+## Configuração AWS
 
-Todos os parâmetros são informados na aba **Configuração** do add-on.
+Selecione `aws_rekognition` e preencha:
 
-### Fonte Home Assistant
+- `aws_region`: normalmente `us-east-1`;
+- `aws_access_key_id`;
+- `aws_secret_access_key`;
+- `aws_max_analyses_per_day`;
+- timeouts e tentativas conforme necessário.
 
-Quando `source_enabled` estiver ativo, o add-on consulta a entidade configurada em
-`source_entity_id` e observa o atributo indicado em `source_photo_attribute`.
+O usuário IAM deve possuir apenas `rekognition:DetectFaces`. As imagens são enviadas em memória como bytes JPEG ou PNG; não é necessário criar bucket S3.
 
-Exemplo:
+As chaves são armazenadas nas opções privadas do add-on. O Seiden Vision não as grava nos logs, no banco de dados nem nos estados do Home Assistant.
 
-- entidade: `sensor.seiden_evo_last_person`
-- atributo: `photo_url`
+## Teste do adaptador
 
-Ao detectar uma URL nova, o add-on coloca a imagem na fila.
+Na interface do Seiden Vision, clique em **Testar adaptador**. O teste usa a URL preenchida no formulário. Se ela estiver vazia, usa a última imagem disponível na entidade configurada como fonte.
 
-## Interface Web
+O teste realiza uma análise real e, portanto, pode gerar uma chamada faturável quando o adaptador AWS estiver selecionado.
 
-A interface oferece:
+## Resultado normalizado
 
-- estado do serviço;
-- teste manual de URL;
-- histórico das análises;
-- estatísticas;
-- limpeza do histórico;
-- teste de publicação no Home Assistant.
+Todos os adaptadores retornam o mesmo contrato `VisionResult`, com campos como:
+
+- quantidade de faces;
+- emoção dominante;
+- confiança;
+- brilho e nitidez;
+- pose;
+- faixa etária;
+- gênero;
+- sorriso, olhos abertos e oclusão;
+- região, Request ID e tempo de processamento.
+
+## Limite diário
+
+`aws_max_analyses_per_day` impede novas análises automáticas depois que o número configurado de análises AWS concluídas no dia é alcançado. É uma proteção operacional adicional ao AWS Budget, não um limite de faturamento da própria AWS.
 
 ## API
 
-### Saúde
-
-`GET /api/v1/health`
-
-### Estatísticas
-
-`GET /api/v1/stats`
-
-### Histórico
-
-`GET /api/v1/analyses`
-
-### Enviar imagem
-
-`POST /api/v1/analyze`
-
-```json
-{
-  "source": "Entrada Principal",
-  "image_url": "http://192.168.1.100/foto.jpg",
-  "person": "Nome opcional",
-  "captured_at": "2026-07-21T15:30:00-03:00"
-}
-```
-
-## Observação
-
-O provedor `mock` gera resultados determinísticos a partir do hash da imagem. Ele não realiza
-análise facial real. Sua finalidade é validar a infraestrutura completa sem consumo de serviços externos.
-
-
-## Sensores operacionais da versão 0.1.1
-
-- `sensor.seiden_vision_status`
-- `sensor.seiden_vision_queue`
-- `sensor.seiden_vision_provider`
-- `sensor.seiden_vision_version`
-- `sensor.seiden_vision_uptime`
-- `sensor.seiden_vision_last_processing`
-- `sensor.seiden_vision_last_result`
-- `sensor.seiden_vision_analyses_today`
-
-O servidor web agora utiliza Gunicorn com um único processo e múltiplas threads. O único processo é intencional: evita que várias instâncias do watcher processem a mesma fotografia.
+- `GET /api/v1/health`
+- `GET /api/v1/stats`
+- `GET /api/v1/analyses`
+- `POST /api/v1/analyze`
+- `POST /api/v1/provider/test`
+- `POST /api/v1/publish-test`
+- `DELETE /api/v1/analyses`

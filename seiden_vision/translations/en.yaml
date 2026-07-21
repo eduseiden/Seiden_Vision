@@ -3,43 +3,65 @@ configuration:
     name: Log level
     description: Controls log verbosity.
   provider:
-    name: Vision provider
-    description: Version 0.1.0 provides the mock provider.
+    name: Vision adapter
+    description: Use mock for local tests or aws_rekognition for real analysis.
   minimum_confidence:
     name: Minimum confidence
-    description: Minimum confidence for a valid result.
+    description: Minimum confidence required to accept a detected face.
   duplicate_window_minutes:
     name: Duplicate window
-    description: Minutes during which an identical image will not be processed again.
+    description: Minutes during which the same SHA-256 image is ignored.
   download_timeout_seconds:
     name: Download timeout
-    description: Maximum image download time.
+    description: Maximum time to download an image.
   maximum_image_size_mb:
     name: Maximum image size
-    description: Maximum accepted image size in megabytes.
+    description: Size limit in MB. AWS Rekognition accepts up to 5 MB through Bytes.
   retain_images:
     name: Retain images
-    description: Store processed images locally.
+    description: Stores a local copy of analyzed images.
   history_retention_days:
     name: History retention
-    description: Number of days kept in the local database.
+    description: Number of days to retain SQLite records.
   publish_to_home_assistant:
     name: Publish to Home Assistant
-    description: Update Seiden Vision sensors in Home Assistant.
+    description: Creates and updates REST state sensors.
   source_enabled:
     name: Watch Home Assistant source
-    description: Poll the configured entity for new image URLs.
+    description: Automatically observes the configured entity.
   source_name:
     name: Source name
-    description: Friendly capture point name.
+    description: Friendly name for the reader or camera.
   source_entity_id:
     name: Source entity
-    description: Entity containing the image URL.
+    description: Entity containing the photo URL.
   source_photo_attribute:
     name: Photo attribute
     description: Attribute containing the image URL.
   poll_interval_seconds:
     name: Poll interval
-    description: Seconds between entity checks.
-network:
-  8099/tcp: Seiden Vision web interface
+    description: Source entity polling frequency.
+  aws_region:
+    name: AWS Region
+    description: Rekognition region, for example us-east-1.
+  aws_access_key_id:
+    name: AWS Access Key ID
+    description: Access key for the dedicated Seiden Vision IAM user.
+  aws_secret_access_key:
+    name: AWS Secret Access Key
+    description: Secret key for the dedicated IAM user. It is masked and never logged.
+  aws_max_analyses_per_day:
+    name: AWS daily limit
+    description: Blocks new calls after this number of completed AWS analyses per day.
+  aws_store_raw_response:
+    name: Store raw AWS response
+    description: Stores the full Rekognition JSON in SQLite for diagnostics.
+  aws_connect_timeout_seconds:
+    name: AWS connection timeout
+    description: Maximum time to establish a connection to AWS.
+  aws_read_timeout_seconds:
+    name: AWS response timeout
+    description: Maximum time to receive the Rekognition response.
+  aws_max_attempts:
+    name: AWS attempts
+    description: Maximum attempts using the SDK standard retry mode.

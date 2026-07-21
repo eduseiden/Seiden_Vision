@@ -20,7 +20,7 @@ class Settings:
     minimum_confidence: int = 70
     duplicate_window_minutes: int = 1440
     download_timeout_seconds: int = 10
-    maximum_image_size_mb: int = 8
+    maximum_image_size_mb: int = 5
     retain_images: bool = False
     history_retention_days: int = 90
     publish_to_home_assistant: bool = True
@@ -29,10 +29,31 @@ class Settings:
     source_entity_id: str = "sensor.seiden_evo_last_person"
     source_photo_attribute: str = "photo_url"
     poll_interval_seconds: int = 3
+    aws_region: str = "us-east-1"
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_max_analyses_per_day: int = 1000
+    aws_store_raw_response: bool = True
+    aws_connect_timeout_seconds: int = 5
+    aws_read_timeout_seconds: int = 20
+    aws_max_attempts: int = 3
 
     @property
     def supervisor_token(self) -> str:
         return os.environ.get("SUPERVISOR_TOKEN", "")
+
+    @property
+    def aws_configured(self) -> bool:
+        return bool(self.aws_access_key_id.strip() and self.aws_secret_access_key.strip())
+
+    @property
+    def masked_access_key(self) -> str:
+        key = self.aws_access_key_id.strip()
+        if not key:
+            return "não configurada"
+        if len(key) <= 8:
+            return "*" * len(key)
+        return f"{key[:4]}{'*' * (len(key) - 8)}{key[-4:]}"
 
 
 def _load_raw_options() -> dict[str, Any]:

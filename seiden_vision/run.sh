@@ -1,7 +1,7 @@
 #!/usr/bin/with-contenv bashio
 set -euo pipefail
 
-bashio::log.info "Iniciando Seiden Vision 0.1.1..."
+bashio::log.info "Iniciando Seiden Vision 0.2.0..."
 bashio::log.info "Arquitetura: $(uname -m)"
 bashio::log.info "Servidor web: Gunicorn (1 worker, 4 threads)"
 

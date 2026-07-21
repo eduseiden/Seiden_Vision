@@ -15,7 +15,7 @@ import requests
 from config import IMAGES_DIR, Settings
 from database import Database
 from ha_client import HomeAssistantClient
-from providers import create_provider
+from vision_adapters import create_adapter
 
 
 LOGGER = logging.getLogger("engine")
@@ -39,7 +39,7 @@ class VisionEngine:
         self.settings = settings
         self.database = database
         self.ha_client = ha_client
-        self.provider = create_provider(settings.provider)
+        self.provider = create_adapter(settings)
         self.queue: queue.Queue[AnalysisJob] = queue.Queue(maxsize=500)
         self.stop_event = threading.Event()
         self.worker_thread = threading.Thread(
@@ -104,8 +104,12 @@ class VisionEngine:
     def health(self) -> dict[str, Any]:
         return {
             "status": "ok",
-            "version": "0.1.1",
+            "version": "0.2.0",
             "provider": self.provider.name,
+            "region": getattr(self.provider, "region", None),
+            "aws_configured": self.settings.aws_configured,
+            "aws_analyses_today": self.database.provider_calls_today("aws_rekognition"),
+            "aws_daily_limit": self.settings.aws_max_analyses_per_day,
             "queue_size": self.queue.qsize(),
             "worker_alive": self.worker_thread.is_alive(),
             "source_watcher_alive": self.source_thread.is_alive(),
@@ -123,7 +127,7 @@ class VisionEngine:
             url,
             timeout=self.settings.download_timeout_seconds,
             stream=True,
-            headers={"User-Agent": "Seiden-Vision/0.1.1"},
+            headers={"User-Agent": "Seiden-Vision/0.2.0"},
         ) as response:
             response.raise_for_status()
             content_type = response.headers.get("Content-Type", "").split(";")[0].lower()
@@ -210,9 +214,23 @@ class VisionEngine:
                 return
 
             LOGGER.info("Duplicidade......... NÃO")
+            if self.provider.name == "aws_rekognition":
+                used_today = self.database.provider_calls_today(self.provider.name)
+                if used_today >= self.settings.aws_max_analyses_per_day:
+                    raise RuntimeError(
+                        f"Limite diário do AWS Rekognition atingido: {used_today}/"
+                        f"{self.settings.aws_max_analyses_per_day}."
+                    )
+                LOGGER.info(
+                    "Cota AWS............ %s/%s análises concluídas hoje",
+                    used_today,
+                    self.settings.aws_max_analyses_per_day,
+                )
             result = self.provider.analyze(
                 image_bytes, self.settings.minimum_confidence
             )
+            if self.provider.name == "aws_rekognition":
+                self.database.record_provider_call(self.provider.name, "analyze")
             retained_path = None
             if self.settings.retain_images:
                 retained_path = self._retain(image_bytes, image_hash, content_type)
@@ -225,6 +243,7 @@ class VisionEngine:
                 "brightness": result.get("quality", {}).get("brightness"),
                 "sharpness": result.get("quality", {}).get("sharpness"),
                 "processing_ms": result.get("processing_ms"),
+                "download_ms": download_ms,
                 "duplicate_of": None,
                 "retained_path": retained_path,
                 "result": result,
@@ -237,12 +256,17 @@ class VisionEngine:
             self.last_processing_ms = int(base.get("processing_ms") or 0)
 
             LOGGER.info("Provider............ %s", self.provider.name)
+            if result.get("region"):
+                LOGGER.info("Região AWS.......... %s", result.get("region"))
+            if result.get("request_id"):
+                LOGGER.info("AWS Request ID...... %s", result.get("request_id"))
             LOGGER.info("Faces............... %s", base.get("face_count"))
             LOGGER.info("Resultado........... %s", base.get("dominant_emotion"))
             LOGGER.info("Confiança........... %.2f%%", base.get("confidence") or 0)
             LOGGER.info("Brightness.......... %s", base.get("brightness"))
             LOGGER.info("Sharpness........... %s", base.get("sharpness"))
             LOGGER.info("Processamento....... %s ms", base.get("processing_ms"))
+            LOGGER.info("Download imagem..... %s ms", download_ms)
             LOGGER.info("SQLite.............. OK (registro %s)", record_id)
 
             if self.settings.publish_to_home_assistant:
@@ -272,6 +296,41 @@ class VisionEngine:
             }
             record_id = self.database.insert(error_record)
             LOGGER.error("SQLite.............. erro registrado como %s", record_id)
+
+    def test_provider(self, image_url: str | None = None) -> dict[str, Any]:
+        resolved_url = image_url
+        if not resolved_url and self.settings.source_enabled and self.ha_client.available:
+            state = self.ha_client.get_state(self.settings.source_entity_id)
+            if state:
+                resolved_url = state.get("attributes", {}).get(
+                    self.settings.source_photo_attribute
+                )
+        if not resolved_url:
+            raise ValueError(
+                "Nenhuma URL foi informada e a fonte configurada não possui foto disponível."
+            )
+        image_bytes, content_type, download_ms = self._download(str(resolved_url))
+        if self.provider.name == "aws_rekognition":
+            used_today = self.database.provider_calls_today(self.provider.name)
+            if used_today >= self.settings.aws_max_analyses_per_day:
+                raise RuntimeError("Limite diário do AWS Rekognition atingido.")
+        result = self.provider.analyze(image_bytes, self.settings.minimum_confidence)
+        if self.provider.name == "aws_rekognition":
+            self.database.record_provider_call(self.provider.name, "test")
+        return {
+            "status": "ok",
+            "provider": self.provider.name,
+            "region": getattr(self.provider, "region", None),
+            "image_url": str(resolved_url),
+            "content_type": content_type,
+            "image_size_bytes": len(image_bytes),
+            "download_ms": download_ms,
+            "processing_ms": result.get("processing_ms"),
+            "face_count": result.get("face_count"),
+            "dominant_emotion": result.get("dominant_emotion"),
+            "confidence": result.get("confidence"),
+            "request_id": result.get("request_id"),
+        }
 
     def _worker_loop(self) -> None:
         while not self.stop_event.is_set():
@@ -318,6 +377,7 @@ class VisionEngine:
                     queue_size=self.queue.qsize(),
                     uptime_seconds=self.uptime_seconds(),
                     last_processing_ms=self.last_processing_ms,
+                    region=getattr(self.provider, "region", None),
                 )
                 if not all(results.values()):
                     LOGGER.debug("Publicação operacional parcial: %s", results)

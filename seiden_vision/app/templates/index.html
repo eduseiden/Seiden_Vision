@@ -53,6 +53,10 @@
         </label>
         <button type="submit">Analisar</button>
       </form>
+      <div class="actions test-actions">
+        <button id="providerTest" type="button" class="secondary">Testar adaptador</button>
+        <span class="hint">Usa a URL acima; se estiver vazia, usa a última foto da fonte configurada.</span>
+      </div>
       <div id="message" class="message hidden"></div>
     </section>
 
@@ -60,7 +64,7 @@
       <div class="panel-title">
         <div>
           <h2>Histórico</h2>
-          <p>Resultados do Mock Provider. Nenhuma inferência real é feita nesta versão.</p>
+          <p>Resultados normalizados do adaptador selecionado.</p>
         </div>
         <div class="actions">
           <button id="publishTest" class="secondary">Testar HA</button>

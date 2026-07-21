@@ -38,6 +38,7 @@ async function loadDashboard() {
     $("#healthStatus").textContent = health.status === "ok" ? "Online" : health.status;
     $("#todayCount").textContent = stats.today;
     $("#queueSize").textContent = health.queue_size;
+    $("#providerName").textContent = health.region ? `${health.provider} · ${health.region}` : health.provider;
 
     const body = $("#historyBody");
     if (!analyses.items.length) {
@@ -87,6 +88,23 @@ $("#analyzeForm").addEventListener("submit", async (event) => {
     });
     showMessage(`Imagem colocada na fila. Itens na fila: ${result.queue_size}.`);
     setTimeout(loadDashboard, 1200);
+  } catch (error) {
+    showMessage(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+$("#providerTest").addEventListener("click", async () => {
+  const button = $("#providerTest");
+  button.disabled = true;
+  try {
+    const result = await api("api/v1/provider/test", {
+      method: "POST",
+      body: JSON.stringify({ image_url: $("#imageUrl").value || null })
+    });
+    const region = result.region ? ` · ${result.region}` : "";
+    showMessage(`Adaptador OK: ${result.provider}${region}. Faces: ${result.face_count}. Download: ${result.download_ms} ms. Processamento: ${result.processing_ms} ms.`);
   } catch (error) {
     showMessage(error.message, true);
   } finally {

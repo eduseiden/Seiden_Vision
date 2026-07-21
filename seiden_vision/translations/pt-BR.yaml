@@ -1,45 +1,67 @@
 configuration:
   log_level:
     name: Nível de log
-    description: Define o nível de detalhamento dos registros.
+    description: Define a quantidade de detalhes registrada pelo add-on.
   provider:
-    name: Provedor de visão
-    description: Na versão 0.1.0 está disponível apenas o simulador.
+    name: Adaptador de visão
+    description: Use mock para testes locais ou aws_rekognition para análise real.
   minimum_confidence:
     name: Confiança mínima
-    description: Limite mínimo para considerar um resultado válido.
+    description: Confiança mínima para aceitar uma face detectada.
   duplicate_window_minutes:
     name: Janela de duplicidade
-    description: Minutos durante os quais uma imagem idêntica não será processada novamente. Use zero para desativar.
+    description: Intervalo em minutos para ignorar a mesma imagem pelo SHA-256.
   download_timeout_seconds:
-    name: Tempo limite do download
-    description: Tempo máximo para baixar uma imagem.
+    name: Timeout de download
+    description: Tempo máximo para baixar uma imagem da fonte.
   maximum_image_size_mb:
     name: Tamanho máximo da imagem
-    description: Limite de tamanho aceito em megabytes.
+    description: Limite em MB. O AWS Rekognition aceita até 5 MB via bytes.
   retain_images:
-    name: Manter imagens
-    description: Salva localmente as imagens processadas.
+    name: Reter imagens
+    description: Salva localmente uma cópia das imagens analisadas.
   history_retention_days:
     name: Retenção do histórico
-    description: Quantidade de dias mantidos no banco local.
+    description: Quantos dias os registros ficam no SQLite.
   publish_to_home_assistant:
     name: Publicar no Home Assistant
-    description: Atualiza sensores do Seiden Vision no Home Assistant.
+    description: Cria e atualiza sensores REST no Home Assistant.
   source_enabled:
-    name: Observar fonte do Home Assistant
-    description: Ativa a leitura periódica da entidade configurada.
+    name: Monitorar fonte do Home Assistant
+    description: Observa automaticamente a entidade configurada.
   source_name:
     name: Nome da fonte
-    description: Nome amigável do ponto de captura.
+    description: Nome amigável do leitor ou câmera.
   source_entity_id:
-    name: Entidade da fonte
-    description: Entidade que contém a URL da imagem.
+    name: Entidade de origem
+    description: Entidade que contém a URL da foto.
   source_photo_attribute:
-    name: Atributo da fotografia
-    description: Nome do atributo que contém a URL.
+    name: Atributo da foto
+    description: Nome do atributo que contém a URL da imagem.
   poll_interval_seconds:
     name: Intervalo de consulta
-    description: Intervalo em segundos para verificar a entidade.
-network:
-  8099/tcp: Interface web do Seiden Vision
+    description: Frequência de leitura da entidade de origem.
+  aws_region:
+    name: Região AWS
+    description: Região do Rekognition, por exemplo us-east-1.
+  aws_access_key_id:
+    name: AWS Access Key ID
+    description: Chave do usuário IAM exclusivo do Seiden Vision. O campo é mascarado.
+  aws_secret_access_key:
+    name: AWS Secret Access Key
+    description: Segredo do usuário IAM exclusivo. O campo é mascarado e nunca é registrado nos logs.
+  aws_max_analyses_per_day:
+    name: Limite diário AWS
+    description: Bloqueia novas chamadas após esta quantidade de análises AWS concluídas no dia.
+  aws_store_raw_response:
+    name: Armazenar retorno bruto da AWS
+    description: Salva o JSON completo do Rekognition dentro do registro SQLite para diagnóstico.
+  aws_connect_timeout_seconds:
+    name: Timeout de conexão AWS
+    description: Tempo máximo para estabelecer conexão com a AWS.
+  aws_read_timeout_seconds:
+    name: Timeout de resposta AWS
+    description: Tempo máximo para receber a resposta do Rekognition.
+  aws_max_attempts:
+    name: Tentativas AWS
+    description: Número máximo de tentativas usando o modo padrão de retry do SDK.

@@ -56,6 +56,20 @@ class Database:
                 "CREATE INDEX IF NOT EXISTS idx_analyses_created "
                 "ON analyses(created_at)"
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS provider_usage (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created_at TEXT NOT NULL,
+                    provider TEXT NOT NULL,
+                    operation TEXT NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_provider_usage_created "
+                "ON provider_usage(provider, created_at)"
+            )
 
     def find_recent_duplicate(self, image_hash: str, minutes: int) -> dict[str, Any] | None:
         if minutes <= 0:
@@ -139,6 +153,22 @@ class Database:
             "errors": errors,
             "average_processing_ms": round(avg_ms or 0, 1),
         }
+
+    def record_provider_call(self, provider: str, operation: str = "analyze") -> int:
+        with self._lock, self._connect() as conn:
+            cursor = conn.execute(
+                "INSERT INTO provider_usage (created_at, provider, operation) VALUES (?, ?, ?)",
+                (datetime.now(timezone.utc).isoformat(), provider, operation),
+            )
+            return int(cursor.lastrowid)
+
+    def provider_calls_today(self, provider: str) -> int:
+        today = datetime.now(timezone.utc).date().isoformat()
+        with self._connect() as conn:
+            return int(conn.execute(
+                "SELECT COUNT(*) FROM provider_usage WHERE substr(created_at,1,10)=? AND provider=?",
+                (today, provider),
+            ).fetchone()[0])
 
     def purge_older_than(self, days: int) -> int:
         threshold = datetime.now(timezone.utc) - timedelta(days=days)
