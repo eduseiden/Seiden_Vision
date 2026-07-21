@@ -1,5 +1,5 @@
 name: Seiden Vision
-version: "0.2.0"
+version: "0.3.0"
 slug: seiden_vision
 description: Plataforma local de orquestração e análise de imagens
 url: https://github.com/eduseiden/Seiden_Vision
@@ -45,6 +45,9 @@ options:
   aws_connect_timeout_seconds: 5
   aws_read_timeout_seconds: 20
   aws_max_attempts: 3
+  quality_min_brightness: 35
+  quality_min_sharpness: 40
+  aws_price_per_1000_images: 1.0
 
 schema:
   log_level: list(trace|debug|info|warning|error|critical)
@@ -69,3 +72,6 @@ schema:
   aws_connect_timeout_seconds: int(1,30)
   aws_read_timeout_seconds: int(1,120)
   aws_max_attempts: int(1,10)
+  quality_min_brightness: int(0,100)
+  quality_min_sharpness: int(0,100)
+  aws_price_per_1000_images: float(0,100)

@@ -41,6 +41,10 @@ class Database:
                     brightness REAL,
                     sharpness REAL,
                     processing_ms INTEGER,
+                    download_ms INTEGER,
+                    total_ms INTEGER,
+                    quality_score REAL,
+                    alert_level TEXT,
                     duplicate_of INTEGER,
                     retained_path TEXT,
                     result_json TEXT NOT NULL,
@@ -70,6 +74,15 @@ class Database:
                 "CREATE INDEX IF NOT EXISTS idx_provider_usage_created "
                 "ON provider_usage(provider, created_at)"
             )
+            existing = {row[1] for row in conn.execute("PRAGMA table_info(analyses)").fetchall()}
+            for column, definition in {
+                "download_ms": "INTEGER",
+                "total_ms": "INTEGER",
+                "quality_score": "REAL",
+                "alert_level": "TEXT",
+            }.items():
+                if column not in existing:
+                    conn.execute(f"ALTER TABLE analyses ADD COLUMN {column} {definition}")
 
     def find_recent_duplicate(self, image_hash: str, minutes: int) -> dict[str, Any] | None:
         if minutes <= 0:
@@ -98,7 +111,8 @@ class Database:
             "created_at", "captured_at", "source", "person", "image_url",
             "image_hash", "provider", "status", "face_count",
             "dominant_emotion", "confidence", "brightness", "sharpness",
-            "processing_ms", "duplicate_of", "retained_path", "result_json", "error",
+            "processing_ms", "download_ms", "total_ms", "quality_score", "alert_level",
+            "duplicate_of", "retained_path", "result_json", "error",
         ]
         values = [payload.get(column) for column in columns]
         placeholders = ",".join("?" for _ in columns)
@@ -145,6 +159,15 @@ class Database:
             avg_ms = conn.execute(
                 "SELECT AVG(processing_ms) FROM analyses WHERE status='success'"
             ).fetchone()[0]
+            avg_total_ms = conn.execute(
+                "SELECT AVG(total_ms) FROM analyses WHERE status='success'"
+            ).fetchone()[0]
+            alerts = conn.execute(
+                "SELECT COUNT(*) FROM analyses WHERE alert_level IN ('warning','critical')"
+            ).fetchone()[0]
+            avg_quality = conn.execute(
+                "SELECT AVG(quality_score) FROM analyses WHERE status='success'"
+            ).fetchone()[0]
         return {
             "total": total,
             "today": today_count,
@@ -152,6 +175,9 @@ class Database:
             "duplicates": duplicates,
             "errors": errors,
             "average_processing_ms": round(avg_ms or 0, 1),
+            "average_total_ms": round(avg_total_ms or 0, 1),
+            "alerts": alerts,
+            "average_quality_score": round(avg_quality or 0, 1),
         }
 
     def record_provider_call(self, provider: str, operation: str = "analyze") -> int:

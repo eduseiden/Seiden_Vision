@@ -8,7 +8,7 @@ import requests
 
 LOGGER = logging.getLogger(__name__)
 BASE_URL = "http://supervisor/core/api"
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 
 class HomeAssistantClient:
@@ -158,6 +158,18 @@ class HomeAssistantClient:
             "smile": (record.get("result") or {}).get("smile"),
             "eyes_open": (record.get("result") or {}).get("eyes_open"),
             "face_occluded": (record.get("result") or {}).get("face_occluded"),
+            "mouth_open": (record.get("result") or {}).get("mouth_open"),
+            "eyeglasses": (record.get("result") or {}).get("eyeglasses"),
+            "sunglasses": (record.get("result") or {}).get("sunglasses"),
+            "beard": (record.get("result") or {}).get("beard"),
+            "mustache": (record.get("result") or {}).get("mustache"),
+            "pose": (record.get("result") or {}).get("pose"),
+            "emotions": (record.get("result") or {}).get("emotions"),
+            "bounding_box": (record.get("result") or {}).get("bounding_box"),
+            "operational": (record.get("result") or {}).get("operational"),
+            "quality_score": record.get("quality_score"),
+            "alert_level": record.get("alert_level"),
+            "total_ms": record.get("total_ms"),
             "image_url": record.get("image_url"),
             "analysis_id": record.get("id"),
             "provider": record.get("provider"),
@@ -177,6 +189,36 @@ class HomeAssistantClient:
                     "friendly_name": "Seiden Vision - Análises hoje",
                     "icon": "mdi:counter",
                     **stats,
+                },
+            ),
+            "quality": self.set_state(
+                "sensor.seiden_vision_last_quality",
+                record.get("quality_score") or 0,
+                {
+                    "friendly_name": "Seiden Vision - Qualidade da última imagem",
+                    "icon": "mdi:image-check-outline",
+                    "unit_of_measurement": "%",
+                    "brightness": record.get("brightness"),
+                    "sharpness": record.get("sharpness"),
+                },
+            ),
+            "alert": self.set_state(
+                "sensor.seiden_vision_last_alert",
+                record.get("alert_level") or "ok",
+                {
+                    "friendly_name": "Seiden Vision - Último alerta",
+                    "icon": "mdi:alert-circle-outline",
+                    "reasons": ((record.get("result") or {}).get("operational") or {}).get("alert_reasons", []),
+                    "analysis_id": record.get("id"),
+                },
+            ),
+            "total_time": self.set_state(
+                "sensor.seiden_vision_last_total_time",
+                record.get("total_ms") or 0,
+                {
+                    "friendly_name": "Seiden Vision - Tempo total da última análise",
+                    "icon": "mdi:timer-sand-complete",
+                    "unit_of_measurement": "ms",
                 },
             ),
         }

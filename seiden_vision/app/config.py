@@ -37,6 +37,9 @@ class Settings:
     aws_connect_timeout_seconds: int = 5
     aws_read_timeout_seconds: int = 20
     aws_max_attempts: int = 3
+    quality_min_brightness: int = 35
+    quality_min_sharpness: int = 40
+    aws_price_per_1000_images: float = 1.0
 
     @property
     def supervisor_token(self) -> str:

@@ -13,7 +13,7 @@ from engine import AnalysisJob, VisionEngine
 from ha_client import HomeAssistantClient
 
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 settings = load_settings()
 
 logging.basicConfig(
@@ -59,7 +59,15 @@ def health():
 
 @app.get("/api/v1/stats")
 def stats():
-    return jsonify(database.stats())
+    data = database.stats()
+    calls = database.provider_calls_today("aws_rekognition")
+    data.update({
+        "aws_calls_today": calls,
+        "aws_daily_limit": settings.aws_max_analyses_per_day,
+        "aws_quota_percent": round(calls * 100 / settings.aws_max_analyses_per_day, 2),
+        "aws_estimated_cost_today_usd": round(calls * settings.aws_price_per_1000_images / 1000.0, 4),
+    })
+    return jsonify(data)
 
 
 @app.get("/api/v1/analyses")

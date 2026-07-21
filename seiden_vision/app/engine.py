@@ -15,6 +15,7 @@ import requests
 from config import IMAGES_DIR, Settings
 from database import Database
 from ha_client import HomeAssistantClient
+from intelligence import enrich_result
 from vision_adapters import create_adapter
 
 
@@ -104,12 +105,16 @@ class VisionEngine:
     def health(self) -> dict[str, Any]:
         return {
             "status": "ok",
-            "version": "0.2.0",
+            "version": "0.3.0",
             "provider": self.provider.name,
             "region": getattr(self.provider, "region", None),
             "aws_configured": self.settings.aws_configured,
             "aws_analyses_today": self.database.provider_calls_today("aws_rekognition"),
             "aws_daily_limit": self.settings.aws_max_analyses_per_day,
+            "aws_estimated_cost_today_usd": round(
+                self.database.provider_calls_today("aws_rekognition")
+                * self.settings.aws_price_per_1000_images / 1000.0, 4
+            ),
             "queue_size": self.queue.qsize(),
             "worker_alive": self.worker_thread.is_alive(),
             "source_watcher_alive": self.source_thread.is_alive(),
@@ -127,7 +132,7 @@ class VisionEngine:
             url,
             timeout=self.settings.download_timeout_seconds,
             stream=True,
-            headers={"User-Agent": "Seiden-Vision/0.2.0"},
+            headers={"User-Agent": "Seiden-Vision/0.3.0"},
         ) as response:
             response.raise_for_status()
             content_type = response.headers.get("Content-Type", "").split(";")[0].lower()
@@ -229,12 +234,19 @@ class VisionEngine:
             result = self.provider.analyze(
                 image_bytes, self.settings.minimum_confidence
             )
+            result = enrich_result(
+                result,
+                min_brightness=self.settings.quality_min_brightness,
+                min_sharpness=self.settings.quality_min_sharpness,
+            )
             if self.provider.name == "aws_rekognition":
                 self.database.record_provider_call(self.provider.name, "analyze")
             retained_path = None
             if self.settings.retain_images:
                 retained_path = self._retain(image_bytes, image_hash, content_type)
 
+            total_ms = int((time.perf_counter() - overall_started) * 1000)
+            operational = result.get("operational", {})
             base.update({
                 "status": "success",
                 "face_count": result.get("face_count", 0),
@@ -244,6 +256,9 @@ class VisionEngine:
                 "sharpness": result.get("quality", {}).get("sharpness"),
                 "processing_ms": result.get("processing_ms"),
                 "download_ms": download_ms,
+                "total_ms": total_ms,
+                "quality_score": operational.get("quality_score"),
+                "alert_level": operational.get("alert_level"),
                 "duplicate_of": None,
                 "retained_path": retained_path,
                 "result": result,
@@ -265,6 +280,14 @@ class VisionEngine:
             LOGGER.info("Confiança........... %.2f%%", base.get("confidence") or 0)
             LOGGER.info("Brightness.......... %s", base.get("brightness"))
             LOGGER.info("Sharpness........... %s", base.get("sharpness"))
+            LOGGER.info("Qualidade........... %s/100", operational.get("quality_score"))
+            LOGGER.info("Alerta.............. %s", operational.get("alert_level", "ok").upper())
+            if operational.get("alert_reasons"):
+                LOGGER.info("Motivos............. %s", " | ".join(operational.get("alert_reasons", [])))
+            emotions = result.get("emotions") or {}
+            if emotions:
+                top = sorted(emotions.items(), key=lambda item: item[1], reverse=True)[:5]
+                LOGGER.info("Emoções............. %s", " | ".join(f"{k}={v:.2f}%" for k, v in top))
             LOGGER.info("Processamento....... %s ms", base.get("processing_ms"))
             LOGGER.info("Download imagem..... %s ms", download_ms)
             LOGGER.info("SQLite.............. OK (registro %s)", record_id)
@@ -280,7 +303,6 @@ class VisionEngine:
             else:
                 LOGGER.info("HA Publish.......... DESATIVADO")
 
-            total_ms = int((time.perf_counter() - overall_started) * 1000)
             LOGGER.info("Tempo total......... %s ms", total_ms)
             LOGGER.info("──────── Análise %s concluída ────────", record_id)
 
@@ -315,6 +337,11 @@ class VisionEngine:
             if used_today >= self.settings.aws_max_analyses_per_day:
                 raise RuntimeError("Limite diário do AWS Rekognition atingido.")
         result = self.provider.analyze(image_bytes, self.settings.minimum_confidence)
+        result = enrich_result(
+            result,
+            min_brightness=self.settings.quality_min_brightness,
+            min_sharpness=self.settings.quality_min_sharpness,
+        )
         if self.provider.name == "aws_rekognition":
             self.database.record_provider_call(self.provider.name, "test")
         return {
