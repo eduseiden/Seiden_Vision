@@ -8,7 +8,7 @@ import requests
 
 LOGGER = logging.getLogger(__name__)
 BASE_URL = "http://supervisor/core/api"
-VERSION = "0.3.1"
+VERSION = "0.3.2"
 
 
 class HomeAssistantClient:
@@ -142,37 +142,35 @@ class HomeAssistantClient:
 
     def publish_management(self, data: dict[str, Any]) -> dict[str, bool]:
         common = {
-            "timezone": data.get("timezone"),
-            "generated_at": data.get("generated_at"),
+            "timezone": data.get("timezone"), "generated_at": data.get("generated_at"),
             "events_yesterday": data.get("events_yesterday"),
             "variation_vs_yesterday_percent": data.get("variation_vs_yesterday_percent"),
             "average_events_7d": data.get("average_events_7d"),
             "variation_vs_7d_percent": data.get("variation_vs_7d_percent"),
-            "hourly_today": data.get("hourly_today", []),
-            "daily_trend": data.get("daily_trend", []),
-            "sources_today": data.get("sources_today", []),
-            "people_today": data.get("people_today", []),
+            "hourly_today": data.get("hourly_today", []), "daily_trend": data.get("daily_trend", []),
+            "sources_today": data.get("sources_today", []), "people_today": data.get("people_today", []),
             "recent_events": data.get("recent_events", []),
         }
+        def publish(entity, state, name, icon, **attrs):
+            return self.set_state(entity, state, {"friendly_name": name, "icon": icon, **attrs})
         return {
-            "events_today": self.set_state("sensor.seiden_vision_events_today", data.get("events_today", 0), {
-                "friendly_name": "Seiden Vision - Eventos hoje", "icon": "mdi:account-arrow-right-outline", **common}),
-            "unique_people": self.set_state("sensor.seiden_vision_unique_people_today", data.get("unique_people_today", 0), {
-                "friendly_name": "Seiden Vision - Pessoas distintas hoje", "icon": "mdi:account-group-outline", "people_today": data.get("people_today", [])}),
-            "alerts_today": self.set_state("sensor.seiden_vision_alerts_today", data.get("alerts_today", 0), {
-                "friendly_name": "Seiden Vision - Alertas hoje", "icon": "mdi:alert-outline", "no_face_today": data.get("no_face_today", 0), "multiple_faces_today": data.get("multiple_faces_today", 0), "duplicates_today": data.get("duplicates_today", 0), "errors_today": data.get("errors_today", 0)}),
-            "average_quality": self.set_state("sensor.seiden_vision_average_quality_today", data.get("average_quality_today", 0), {
-                "friendly_name": "Seiden Vision - Qualidade média hoje", "icon": "mdi:image-check-outline", "unit_of_measurement": "%"}),
-            "average_processing": self.set_state("sensor.seiden_vision_average_processing_today", data.get("average_processing_ms_today", 0), {
-                "friendly_name": "Seiden Vision - Processamento médio hoje", "icon": "mdi:speedometer", "unit_of_measurement": "ms", "average_total_ms_today": data.get("average_total_ms_today", 0)}),
-            "cost_today": self.set_state("sensor.seiden_vision_estimated_cost_today", data.get("estimated_cost_today_usd", 0), {
-                "friendly_name": "Seiden Vision - Custo estimado hoje", "icon": "mdi:currency-usd", "unit_of_measurement": "USD"}),
-            "peak_hour": self.set_state("sensor.seiden_vision_peak_hour_today", data.get("peak_hour_today", "—"), {
-                "friendly_name": "Seiden Vision - Horário de pico hoje", "icon": "mdi:chart-timeline-variant", "first_event_today": data.get("first_event_today"), "last_event_today": data.get("last_event_today")}),
-            "busiest_source": self.set_state("sensor.seiden_vision_busiest_source_today", data.get("busiest_source_today", "—"), {
-                "friendly_name": "Seiden Vision - Fonte mais movimentada hoje", "icon": "mdi:door-open", "sources_today": data.get("sources_today", [])}),
-            "no_face": self.set_state("sensor.seiden_vision_no_face_today", data.get("no_face_today", 0), {"friendly_name": "Seiden Vision - Sem face hoje", "icon": "mdi:account-off-outline"}),
-            "multiple_faces": self.set_state("sensor.seiden_vision_multiple_faces_today", data.get("multiple_faces_today", 0), {"friendly_name": "Seiden Vision - Múltiplas faces hoje", "icon": "mdi:account-multiple-outline"}),
+            "health": publish("sensor.seiden_vision_health", data.get("health_status","unknown"), "Seiden Vision - Saúde", "mdi:heart-pulse", success_rate_today=data.get("success_rate_today"), last_success=data.get("last_success"), last_error=data.get("last_error"), error_breakdown_today=data.get("error_breakdown_today",{})),
+            "captures_today": publish("sensor.seiden_vision_captures_today", data.get("captures_today",0), "Seiden Vision - Capturas hoje", "mdi:camera-burst"),
+            "events_today": publish("sensor.seiden_vision_events_today", data.get("events_today",0), "Seiden Vision - Eventos hoje", "mdi:account-arrow-right-outline", **common),
+            "unique_people": publish("sensor.seiden_vision_unique_people_today", data.get("unique_people_today",0), "Seiden Vision - Pessoas distintas hoje", "mdi:account-group-outline", people_today=data.get("people_today",[])),
+            "alerts_today": publish("sensor.seiden_vision_alerts_today", data.get("alerts_today",0), "Seiden Vision - Alertas hoje", "mdi:alert-outline", no_face_today=data.get("no_face_today",0), multiple_faces_today=data.get("multiple_faces_today",0), duplicates_today=data.get("duplicates_today",0), errors_today=data.get("errors_today",0)),
+            "success_rate": publish("sensor.seiden_vision_success_rate_today", data.get("success_rate_today",100), "Seiden Vision - Taxa de sucesso hoje", "mdi:percent", unit_of_measurement="%"),
+            "average_quality": publish("sensor.seiden_vision_average_quality_today", data.get("average_quality_today",0), "Seiden Vision - Qualidade média hoje", "mdi:image-check-outline", unit_of_measurement="%"),
+            "average_processing": publish("sensor.seiden_vision_average_processing_today", data.get("average_processing_ms_today",0), "Seiden Vision - Processamento médio hoje", "mdi:speedometer", unit_of_measurement="ms", average_total_ms_today=data.get("average_total_ms_today",0), p50_total_ms_today=data.get("p50_total_ms_today",0), p95_total_ms_today=data.get("p95_total_ms_today",0), average_download_ms_today=data.get("average_download_ms_today",0), average_database_ms_today=data.get("average_database_ms_today",0), average_ha_publish_ms_today=data.get("average_ha_publish_ms_today",0)),
+            "p95": publish("sensor.seiden_vision_p95_total_today", data.get("p95_total_ms_today",0), "Seiden Vision - P95 hoje", "mdi:chart-bell-curve", unit_of_measurement="ms"),
+            "cost_today": publish("sensor.seiden_vision_estimated_cost_today", data.get("estimated_cost_today_usd",0), "Seiden Vision - Custo estimado hoje", "mdi:currency-usd", unit_of_measurement="USD", aws_calls=data.get("aws_calls_today",0)),
+            "cost_week": publish("sensor.seiden_vision_estimated_cost_week", data.get("estimated_cost_week_usd",0), "Seiden Vision - Custo estimado da semana", "mdi:calendar-week", unit_of_measurement="USD", aws_calls=data.get("aws_calls_week",0)),
+            "cost_month": publish("sensor.seiden_vision_estimated_cost_month", data.get("estimated_cost_month_usd",0), "Seiden Vision - Custo estimado do mês", "mdi:calendar-month", unit_of_measurement="USD", aws_calls=data.get("aws_calls_month",0)),
+            "projected_cost": publish("sensor.seiden_vision_projected_cost_month", data.get("projected_cost_month_usd",0), "Seiden Vision - Projeção mensal", "mdi:trending-up", unit_of_measurement="USD", monthly_budget_usd=data.get("aws_monthly_budget_usd",0), projected_budget_usage_percent=data.get("projected_budget_usage_percent",0), budget_status=data.get("budget_status","ok")),
+            "peak_hour": publish("sensor.seiden_vision_peak_hour_today", data.get("peak_hour_today","—"), "Seiden Vision - Horário de pico hoje", "mdi:chart-timeline-variant", first_event_today=data.get("first_event_today"), last_event_today=data.get("last_event_today")),
+            "busiest_source": publish("sensor.seiden_vision_busiest_source_today", data.get("busiest_source_today","—"), "Seiden Vision - Fonte mais movimentada hoje", "mdi:door-open", sources_today=data.get("sources_today",[])),
+            "no_face": publish("sensor.seiden_vision_no_face_today", data.get("no_face_today",0), "Seiden Vision - Sem face hoje", "mdi:account-off-outline"),
+            "multiple_faces": publish("sensor.seiden_vision_multiple_faces_today", data.get("multiple_faces_today",0), "Seiden Vision - Múltiplas faces hoje", "mdi:account-multiple-outline"),
         }
 
     def publish_analysis(self, record: dict[str, Any], stats: dict[str, Any]) -> dict[str, bool]:
@@ -208,6 +206,10 @@ class HomeAssistantClient:
             "total_ms": record.get("total_ms"),
             "image_url": record.get("image_url"),
             "analysis_id": record.get("id"),
+            "event_id": record.get("event_id"),
+            "operational_event": record.get("operational_event"),
+            "database_ms": record.get("database_ms"),
+            "ha_publish_ms": record.get("ha_publish_ms"),
             "provider": record.get("provider"),
             "status": record.get("status"),
             "created_at": record.get("created_at"),
@@ -246,6 +248,10 @@ class HomeAssistantClient:
                     "icon": "mdi:alert-circle-outline",
                     "reasons": ((record.get("result") or {}).get("operational") or {}).get("alert_reasons", []),
                     "analysis_id": record.get("id"),
+            "event_id": record.get("event_id"),
+            "operational_event": record.get("operational_event"),
+            "database_ms": record.get("database_ms"),
+            "ha_publish_ms": record.get("ha_publish_ms"),
                 },
             ),
             "total_time": self.set_state(

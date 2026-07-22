@@ -1,5 +1,13 @@
-# Seiden Vision 0.3.1
+# Seiden Vision 0.3.2
 
-Motor de visão computacional e inteligência operacional para Home Assistant.
+Add-on para Home Assistant OS voltado à análise de imagens e inteligência operacional.
 
-A versão 0.3.1 adiciona indicadores gerenciais, tendências diárias e horárias, métricas por pessoa e fonte, comparações com ontem e média de sete dias e publicação de sensores gerenciais no Home Assistant.
+## Destaques
+
+- AWS Rekognition e provider mock.
+- Dashboard técnico e gerencial.
+- Capturas versus eventos operacionais consolidados.
+- Saúde, auditoria, retenção, percentis de desempenho e custos AWS diário/semanal/mensal.
+- APIs REST e exportação CSV.
+
+Consulte `seiden_vision/DOCS.md` e `seiden_vision/CHANGELOG.md`.

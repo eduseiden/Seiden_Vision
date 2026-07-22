@@ -6,6 +6,8 @@ import mimetypes
 import queue
 import threading
 import time
+import uuid
+from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -52,6 +54,9 @@ class VisionEngine:
         self.operational_thread = threading.Thread(
             target=self._operational_loop, name="operational-publisher", daemon=True
         )
+        self.cleanup_thread = threading.Thread(
+            target=self._cleanup_loop, name="retention-cleaner", daemon=True
+        )
         self.last_source_url: str | None = None
         self.last_processing_ms: int | None = None
         self.started_at = datetime.now(timezone.utc)
@@ -72,6 +77,8 @@ class VisionEngine:
             self.worker_thread.start()
             self.source_thread.start()
             self.operational_thread.start()
+            self.cleanup_thread.start()
+            self.database.audit("engine_started", "info", "Seiden Vision 0.3.2 iniciado", {"provider": self.provider.name})
             LOGGER.info(
                 "Engine iniciado. Provider=%s, fonte_ha=%s, fila_max=%s",
                 self.provider.name,
@@ -105,7 +112,7 @@ class VisionEngine:
     def health(self) -> dict[str, Any]:
         return {
             "status": "ok",
-            "version": "0.3.1",
+            "version": "0.3.2",
             "provider": self.provider.name,
             "region": getattr(self.provider, "region", None),
             "aws_configured": self.settings.aws_configured,
@@ -119,6 +126,7 @@ class VisionEngine:
             "worker_alive": self.worker_thread.is_alive(),
             "source_watcher_alive": self.source_thread.is_alive(),
             "operational_publisher_alive": self.operational_thread.is_alive(),
+            "cleanup_worker_alive": self.cleanup_thread.is_alive(),
             "source_enabled": self.settings.source_enabled,
             "uptime_seconds": self.uptime_seconds(),
             "home_assistant_api": self.ha_client.available,
@@ -132,7 +140,7 @@ class VisionEngine:
             url,
             timeout=self.settings.download_timeout_seconds,
             stream=True,
-            headers={"User-Agent": "Seiden-Vision/0.3.1"},
+            headers={"User-Agent": "Seiden-Vision/0.3.2"},
         ) as response:
             response.raise_for_status()
             content_type = response.headers.get("Content-Type", "").split(";")[0].lower()
@@ -173,13 +181,16 @@ class VisionEngine:
     def _process(self, job: AnalysisJob) -> None:
         overall_started = time.perf_counter()
         created_at = datetime.now(timezone.utc).isoformat()
+        event_id = f"{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}-{uuid.uuid4().hex[:10]}"
         base: dict[str, Any] = {
+            "event_id": event_id,
             "created_at": created_at,
             "captured_at": job.captured_at,
             "source": job.source,
             "person": job.person,
             "image_url": job.image_url,
             "provider": self.provider.name,
+            "operational_event": 1,
         }
         LOGGER.info("──────────── Nova análise ────────────")
         LOGGER.info("Fonte............. %s", job.source)
@@ -204,6 +215,7 @@ class VisionEngine:
             if duplicate:
                 base.update({
                     "status": "duplicate",
+                    "operational_event": 0,
                     "face_count": duplicate.get("face_count", 0),
                     "dominant_emotion": duplicate.get("dominant_emotion"),
                     "confidence": duplicate.get("confidence"),
@@ -245,10 +257,12 @@ class VisionEngine:
             if self.settings.retain_images:
                 retained_path = self._retain(image_bytes, image_hash, content_type)
 
+            operational_event = self.database.is_operational_event(job.person, job.source, self.settings.person_event_cooldown_seconds)
             total_ms = int((time.perf_counter() - overall_started) * 1000)
             operational = result.get("operational", {})
             base.update({
                 "status": "success",
+                "operational_event": 1 if operational_event else 0,
                 "face_count": result.get("face_count", 0),
                 "dominant_emotion": result.get("dominant_emotion"),
                 "confidence": result.get("confidence"),
@@ -264,7 +278,10 @@ class VisionEngine:
                 "result": result,
                 "error": None,
             })
+            db_started = time.perf_counter()
             record_id = self.database.insert(base)
+            database_ms = int((time.perf_counter() - db_started) * 1000)
+            base["database_ms"] = database_ms
             base["id"] = record_id
             base["queue_size"] = self.queue.qsize()
             base["uptime_seconds"] = self.uptime_seconds()
@@ -293,6 +310,7 @@ class VisionEngine:
             LOGGER.info("SQLite.............. OK (registro %s)", record_id)
 
             if self.settings.publish_to_home_assistant:
+                ha_started = time.perf_counter()
                 publish_results = self.ha_client.publish_analysis(
                     base, self.database.stats()
                 )
@@ -300,8 +318,14 @@ class VisionEngine:
                     self.settings.management_timezone,
                     self.settings.management_trend_days,
                     self.settings.aws_price_per_1000_images,
+                    self.settings.aws_monthly_budget_usd,
                 )
                 publish_results.update(self.ha_client.publish_management(management))
+                ha_publish_ms = int((time.perf_counter() - ha_started) * 1000)
+                final_total_ms = int((time.perf_counter() - overall_started) * 1000)
+                self.database.update_timings(record_id, database_ms=database_ms, ha_publish_ms=ha_publish_ms, total_ms=final_total_ms)
+                base["ha_publish_ms"] = ha_publish_ms
+                base["total_ms"] = final_total_ms
                 LOGGER.info(
                     "HA Publish.......... %s",
                     "OK" if all(publish_results.values()) else "PARCIAL/FALHA",
@@ -314,16 +338,61 @@ class VisionEngine:
 
         except Exception as exc:
             LOGGER.exception("Falha ao processar imagem: %s", exc)
+            category = self._classify_error(exc)
             error_record = {
                 **base,
                 "image_hash": base.get("image_hash", ""),
                 "status": "error",
+                "error_category": category,
+                "operational_event": 0,
                 "face_count": 0,
                 "result": {},
                 "error": str(exc),
             }
             record_id = self.database.insert(error_record)
             LOGGER.error("SQLite.............. erro registrado como %s", record_id)
+            self.database.audit("analysis_error", "error", str(exc), {"event_id": base.get("event_id"), "category": category, "source": job.source})
+
+    @staticmethod
+    def _classify_error(exc: Exception) -> str:
+        text = str(exc).lower()
+        if isinstance(exc, requests.RequestException) or "download" in text or "http" in text:
+            return "download_error"
+        if "aws" in text or "rekognition" in text or "credential" in text or "token" in text:
+            return "provider_error"
+        if "sqlite" in text or "database" in text:
+            return "database_error"
+        return "processing_error"
+
+    def _cleanup_images(self) -> dict[str, int]:
+        IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+        files = sorted((p for p in IMAGES_DIR.iterdir() if p.is_file()), key=lambda p: p.stat().st_mtime)
+        cutoff = time.time() - self.settings.image_retention_days * 86400
+        removed = 0
+        for path in list(files):
+            if path.stat().st_mtime < cutoff:
+                try:
+                    path.unlink(); removed += 1; files.remove(path)
+                except OSError:
+                    LOGGER.warning("Não foi possível remover imagem antiga: %s", path)
+        excess = max(0, len(files) - self.settings.max_stored_images)
+        for path in files[:excess]:
+            try:
+                path.unlink(); removed += 1
+            except OSError:
+                LOGGER.warning("Não foi possível remover imagem excedente: %s", path)
+        if removed:
+            self.database.audit("image_cleanup", "info", f"{removed} imagens removidas", {"retention_days": self.settings.image_retention_days, "max_images": self.settings.max_stored_images})
+        return {"removed": removed, "remaining": max(0, len(files) - excess)}
+
+    def _cleanup_loop(self) -> None:
+        while not self.stop_event.is_set():
+            try:
+                self._cleanup_images()
+            except Exception as exc:
+                LOGGER.exception("Falha na limpeza de imagens: %s", exc)
+                self.database.audit("cleanup_error", "warning", str(exc))
+            self.stop_event.wait(self.settings.cleanup_interval_hours * 3600)
 
     def test_provider(self, image_url: str | None = None) -> dict[str, Any]:
         resolved_url = image_url
@@ -416,6 +485,7 @@ class VisionEngine:
                     self.settings.management_timezone,
                     self.settings.management_trend_days,
                     self.settings.aws_price_per_1000_images,
+                    self.settings.aws_monthly_budget_usd,
                 )
                 results.update(self.ha_client.publish_management(management))
                 if not all(results.values()):

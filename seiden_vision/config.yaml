@@ -1,5 +1,5 @@
 name: Seiden Vision
-version: "0.3.1"
+version: "0.3.2"
 slug: seiden_vision
 description: Plataforma local de orquestração e análise de imagens
 url: https://github.com/eduseiden/Seiden_Vision
@@ -50,6 +50,12 @@ options:
   aws_price_per_1000_images: 1.0
   management_timezone: America/Sao_Paulo
   management_trend_days: 14
+  person_event_cooldown_seconds: 10
+  image_retention_days: 30
+  max_stored_images: 5000
+  cleanup_interval_hours: 6
+  aws_monthly_budget_usd: 5.0
+  source_inactivity_minutes: 30
 
 schema:
   log_level: list(trace|debug|info|warning|error|critical)
@@ -79,3 +85,9 @@ schema:
   aws_price_per_1000_images: float(0,100)
   management_timezone: str
   management_trend_days: int(7,90)
+  person_event_cooldown_seconds: int(0,3600)
+  image_retention_days: int(1,3650)
+  max_stored_images: int(10,1000000)
+  cleanup_interval_hours: int(1,168)
+  aws_monthly_budget_usd: float(0,100000)
+  source_inactivity_minutes: int(1,1440)

@@ -42,6 +42,12 @@ class Settings:
     aws_price_per_1000_images: float = 1.0
     management_timezone: str = "America/Sao_Paulo"
     management_trend_days: int = 14
+    person_event_cooldown_seconds: int = 10
+    image_retention_days: int = 30
+    max_stored_images: int = 5000
+    cleanup_interval_hours: int = 6
+    aws_monthly_budget_usd: float = 5.0
+    source_inactivity_minutes: int = 30
 
     @property
     def supervisor_token(self) -> str:

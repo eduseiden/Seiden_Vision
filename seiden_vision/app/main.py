@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import atexit
+import csv
+import io
 import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, Response, jsonify, render_template, request
 
 from config import DB_PATH, load_settings
 from database import Database
@@ -13,7 +15,7 @@ from engine import AnalysisJob, VisionEngine
 from ha_client import HomeAssistantClient
 
 
-VERSION = "0.3.1"
+VERSION = "0.3.2"
 settings = load_settings()
 
 logging.basicConfig(
@@ -85,31 +87,68 @@ def management_summary():
         settings.management_timezone,
         settings.management_trend_days,
         settings.aws_price_per_1000_images,
+        settings.aws_monthly_budget_usd,
     ))
 
 
 @app.get("/api/v1/management/daily")
 def management_daily():
-    data = database.management_stats(settings.management_timezone, settings.management_trend_days, settings.aws_price_per_1000_images)
+    data = database.management_stats(settings.management_timezone, settings.management_trend_days, settings.aws_price_per_1000_images, settings.aws_monthly_budget_usd)
     return jsonify({"timezone": data["timezone"], "items": data["daily_trend"]})
 
 
 @app.get("/api/v1/management/hourly")
 def management_hourly():
-    data = database.management_stats(settings.management_timezone, settings.management_trend_days, settings.aws_price_per_1000_images)
+    data = database.management_stats(settings.management_timezone, settings.management_trend_days, settings.aws_price_per_1000_images, settings.aws_monthly_budget_usd)
     return jsonify({"timezone": data["timezone"], "items": data["hourly_today"]})
 
 
 @app.get("/api/v1/management/people")
 def management_people():
-    data = database.management_stats(settings.management_timezone, settings.management_trend_days, settings.aws_price_per_1000_images)
+    data = database.management_stats(settings.management_timezone, settings.management_trend_days, settings.aws_price_per_1000_images, settings.aws_monthly_budget_usd)
     return jsonify({"timezone": data["timezone"], "items": data["people_today"]})
 
 
 @app.get("/api/v1/management/sources")
 def management_sources():
-    data = database.management_stats(settings.management_timezone, settings.management_trend_days, settings.aws_price_per_1000_images)
+    data = database.management_stats(settings.management_timezone, settings.management_trend_days, settings.aws_price_per_1000_images, settings.aws_monthly_budget_usd)
     return jsonify({"timezone": data["timezone"], "items": data["sources_today"]})
+
+
+@app.get("/api/v1/audit")
+def audit_log():
+    try:
+        limit = int(request.args.get("limit", "50"))
+    except ValueError:
+        limit = 50
+    return jsonify({"items": database.list_audit(limit)})
+
+
+@app.get("/api/v1/export/events.csv")
+def export_events_csv():
+    try:
+        limit = int(request.args.get("limit", "5000"))
+    except ValueError:
+        limit = 5000
+    items = database.list_analyses(min(limit, 5000))
+    output = io.StringIO()
+    fields = ["event_id", "created_at", "captured_at", "source", "person", "status", "error_category", "operational_event", "face_count", "dominant_emotion", "confidence", "brightness", "sharpness", "quality_score", "alert_level", "download_ms", "processing_ms", "database_ms", "ha_publish_ms", "total_ms", "image_url", "retained_path", "error"]
+    writer = csv.DictWriter(output, fieldnames=fields, extrasaction="ignore")
+    writer.writeheader()
+    for item in reversed(items):
+        writer.writerow(item)
+    return Response(output.getvalue(), mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=seiden_vision_events.csv"})
+
+
+@app.get("/api/v1/export/daily.csv")
+def export_daily_csv():
+    data = database.management_stats(settings.management_timezone, settings.management_trend_days, settings.aws_price_per_1000_images, settings.aws_monthly_budget_usd)
+    output = io.StringIO()
+    fields = ["date", "captures", "events", "unique_people", "alerts", "average_quality", "average_total_ms"]
+    writer = csv.DictWriter(output, fieldnames=fields, extrasaction="ignore")
+    writer.writeheader()
+    writer.writerows(data.get("daily_trend", []))
+    return Response(output.getvalue(), mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=seiden_vision_daily.csv"})
 
 
 @app.post("/api/v1/analyze")
