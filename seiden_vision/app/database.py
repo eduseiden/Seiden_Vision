@@ -58,6 +58,18 @@ class Database:
                     error TEXT
                 )
             """)
+            # Migrate existing databases before creating indexes that depend on new columns.
+            # On a fresh database, CREATE TABLE above already contains every column. On an
+            # upgraded 0.3.1 database, CREATE TABLE IF NOT EXISTS does not alter the schema.
+            existing = {row[1] for row in conn.execute("PRAGMA table_info(analyses)").fetchall()}
+            for column, definition in {
+                "event_id": "TEXT", "error_category": "TEXT", "operational_event": "INTEGER NOT NULL DEFAULT 1",
+                "download_ms": "INTEGER", "database_ms": "INTEGER", "ha_publish_ms": "INTEGER",
+                "total_ms": "INTEGER", "quality_score": "REAL", "alert_level": "TEXT",
+            }.items():
+                if column not in existing:
+                    conn.execute(f"ALTER TABLE analyses ADD COLUMN {column} {definition}")
+
             conn.execute("CREATE INDEX IF NOT EXISTS idx_analyses_hash_created ON analyses(image_hash, created_at)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_analyses_created ON analyses(created_at)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_analyses_event_id ON analyses(event_id)")
@@ -81,14 +93,6 @@ class Database:
                 )
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at)")
-            existing = {row[1] for row in conn.execute("PRAGMA table_info(analyses)").fetchall()}
-            for column, definition in {
-                "event_id": "TEXT", "error_category": "TEXT", "operational_event": "INTEGER NOT NULL DEFAULT 1",
-                "download_ms": "INTEGER", "database_ms": "INTEGER", "ha_publish_ms": "INTEGER",
-                "total_ms": "INTEGER", "quality_score": "REAL", "alert_level": "TEXT",
-            }.items():
-                if column not in existing:
-                    conn.execute(f"ALTER TABLE analyses ADD COLUMN {column} {definition}")
 
     @staticmethod
     def _safe_timezone(name: str) -> ZoneInfo:
