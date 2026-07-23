@@ -17,7 +17,10 @@ import requests
 from config import IMAGES_DIR, Settings
 from database import Database
 from ha_client import HomeAssistantClient
-from intelligence import enrich_result
+from quality_evaluator import evaluate_quality
+from events import build_analysis_event
+from publishers import WebhookPublisher
+from version import VERSION
 from vision_adapters import create_adapter
 
 
@@ -30,6 +33,13 @@ class AnalysisJob:
     image_url: str
     person: str | None = None
     captured_at: str | None = None
+    source_event_id: str | None = None
+    capture_id: str | None = None
+    source_id: str | None = None
+    source_type: str | None = None
+    device_id: str | None = None
+    location_id: str | None = None
+    person_id: str | None = None
 
 
 class VisionEngine:
@@ -43,6 +53,7 @@ class VisionEngine:
         self.database = database
         self.ha_client = ha_client
         self.provider = create_adapter(settings)
+        self.webhook_publisher = WebhookPublisher(settings.webhook_enabled, settings.webhook_url, settings.webhook_api_key, settings.webhook_timeout_seconds)
         self.queue: queue.Queue[AnalysisJob] = queue.Queue(maxsize=500)
         self.stop_event = threading.Event()
         self.worker_thread = threading.Thread(
@@ -78,7 +89,7 @@ class VisionEngine:
             self.source_thread.start()
             self.operational_thread.start()
             self.cleanup_thread.start()
-            self.database.audit("engine_started", "info", "Seiden Vision 0.3.2 iniciado", {"provider": self.provider.name})
+            self.database.audit("engine_started", "info", f"Seiden Vision {VERSION} iniciado", {"provider": self.provider.name})
             LOGGER.info(
                 "Engine iniciado. Provider=%s, fonte_ha=%s, fila_max=%s",
                 self.provider.name,
@@ -112,7 +123,7 @@ class VisionEngine:
     def health(self) -> dict[str, Any]:
         return {
             "status": "ok",
-            "version": "0.3.2",
+            "version": VERSION,
             "provider": self.provider.name,
             "region": getattr(self.provider, "region", None),
             "aws_configured": self.settings.aws_configured,
@@ -140,7 +151,7 @@ class VisionEngine:
             url,
             timeout=self.settings.download_timeout_seconds,
             stream=True,
-            headers={"User-Agent": "Seiden-Vision/0.3.2"},
+            headers={"User-Agent": f"Seiden-Vision/{VERSION}"},
         ) as response:
             response.raise_for_status()
             content_type = response.headers.get("Content-Type", "").split(";")[0].lower()
@@ -190,6 +201,8 @@ class VisionEngine:
             "person": job.person,
             "image_url": job.image_url,
             "provider": self.provider.name,
+            "source_event_id": job.source_event_id,
+            "capture_id": job.capture_id,
             "operational_event": 1,
         }
         LOGGER.info("──────────── Nova análise ────────────")
@@ -246,7 +259,7 @@ class VisionEngine:
             result = self.provider.analyze(
                 image_bytes, self.settings.minimum_confidence
             )
-            result = enrich_result(
+            result = evaluate_quality(
                 result,
                 min_brightness=self.settings.quality_min_brightness,
                 min_sharpness=self.settings.quality_min_sharpness,
@@ -278,6 +291,9 @@ class VisionEngine:
                 "result": result,
                 "error": None,
             })
+            canonical_event = build_analysis_event(base, job)
+            base["canonical_event"] = canonical_event
+            result["canonical_event"] = canonical_event
             db_started = time.perf_counter()
             record_id = self.database.insert(base)
             database_ms = int((time.perf_counter() - db_started) * 1000)
@@ -285,7 +301,12 @@ class VisionEngine:
             base["id"] = record_id
             base["queue_size"] = self.queue.qsize()
             base["uptime_seconds"] = self.uptime_seconds()
+            canonical_event["processing"]["database_ms"] = database_ms
             self.last_processing_ms = int(base.get("processing_ms") or 0)
+            webhook_ok = self.webhook_publisher.publish(canonical_event)
+            base["webhook_publish_ok"] = webhook_ok
+            if self.settings.webhook_enabled:
+                LOGGER.info("Webhook............ %s", "OK" if webhook_ok else "FALHA")
 
             LOGGER.info("Provider............ %s", self.provider.name)
             if result.get("region"):
@@ -412,7 +433,7 @@ class VisionEngine:
             if used_today >= self.settings.aws_max_analyses_per_day:
                 raise RuntimeError("Limite diário do AWS Rekognition atingido.")
         result = self.provider.analyze(image_bytes, self.settings.minimum_confidence)
-        result = enrich_result(
+        result = evaluate_quality(
             result,
             min_brightness=self.settings.quality_min_brightness,
             min_sharpness=self.settings.quality_min_sharpness,
@@ -463,6 +484,8 @@ class VisionEngine:
                                     person=None
                                     if person in ("unknown", "unavailable")
                                     else str(person),
+                                    source_id=self.settings.source_entity_id,
+                                    source_type="home_assistant_entity",
                                 )
                             )
                         except Exception as exc:

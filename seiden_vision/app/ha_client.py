@@ -8,7 +8,7 @@ import requests
 
 LOGGER = logging.getLogger(__name__)
 BASE_URL = "http://supervisor/core/api"
-VERSION = "0.3.2"
+from version import VERSION
 
 
 class HomeAssistantClient:
@@ -213,6 +213,8 @@ class HomeAssistantClient:
             "provider": record.get("provider"),
             "status": record.get("status"),
             "created_at": record.get("created_at"),
+            "source_event_id": record.get("source_event_id"),
+            "canonical_event": record.get("canonical_event"),
         }
         results = {
             "last_result": self.set_state(

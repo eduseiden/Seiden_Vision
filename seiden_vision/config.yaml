@@ -1,5 +1,5 @@
 name: Seiden Vision
-version: "0.3.2.1"
+version: "0.4.0"
 slug: seiden_vision
 description: Plataforma local de orquestração e análise de imagens
 url: https://github.com/eduseiden/Seiden_Vision
@@ -36,7 +36,7 @@ options:
   publish_to_home_assistant: true
   source_enabled: true
   source_name: Entrada Principal
-  source_entity_id: sensor.seiden_evo_last_person
+  source_entity_id: sensor.seiden_last_person
   source_photo_attribute: photo_url
   poll_interval_seconds: 3
   aws_region: us-east-1
@@ -56,6 +56,11 @@ options:
   cleanup_interval_hours: 6
   aws_monthly_budget_usd: 5.0
   source_inactivity_minutes: 30
+  api_key: ""
+  webhook_enabled: false
+  webhook_url: ""
+  webhook_api_key: ""
+  webhook_timeout_seconds: 10
 
 schema:
   log_level: list(trace|debug|info|warning|error|critical)
@@ -91,3 +96,8 @@ schema:
   cleanup_interval_hours: int(1,168)
   aws_monthly_budget_usd: float(0,100000)
   source_inactivity_minutes: int(1,1440)
+  api_key: password?
+  webhook_enabled: bool
+  webhook_url: str
+  webhook_api_key: password?
+  webhook_timeout_seconds: int(1,60)

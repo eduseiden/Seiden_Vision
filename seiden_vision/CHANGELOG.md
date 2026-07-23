@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.0 — FLOW-ready perception layer
+
+- Removidas referências padrão ao fabricante EVO.
+- Versão centralizada em `version.py`.
+- Novo evento canônico `vision.analysis_completed`, esquema 1.0.
+- Correlação por `source_event_id` e `capture_id`.
+- API aceita estruturas `origin`, `subject`, `image` e `correlation`.
+- Publicação opcional por webhook com token Bearer.
+- Autenticação opcional dos endpoints de alteração por API key.
+- `intelligence.py` substituído conceitualmente por `quality_evaluator.py`.
+- Banco, sensores e APIs 0.3.x preservados para compatibilidade.
+
+
 ## 0.3.2 — Reliability & Cost Management
 
 - Saúde operacional consolidada, taxa de sucesso, último sucesso e último erro.

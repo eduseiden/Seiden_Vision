@@ -70,3 +70,19 @@ configuration:
     name: Fuso horário gerencial
   management_trend_days:
     name: Dias de tendência gerencial
+
+  api_key:
+    name: API key
+    description: Protects mutating endpoints. Leave empty to rely only on Home Assistant ingress.
+  webhook_enabled:
+    name: Publish by webhook
+    description: Sends the canonical event for each completed analysis to an external system such as Seiden FLOW.
+  webhook_url:
+    name: Webhook URL
+    description: HTTP endpoint that receives vision.analysis_completed events.
+  webhook_api_key:
+    name: Webhook key
+    description: Bearer token sent to the destination system.
+  webhook_timeout_seconds:
+    name: Webhook timeout
+    description: Maximum time allowed for external event publishing.

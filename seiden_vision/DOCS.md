@@ -1,29 +1,35 @@
-# Seiden Vision 0.3.2
+# Seiden Vision 0.4.0
 
-## Novas opções
+## Papel arquitetural
 
-```yaml
-person_event_cooldown_seconds: 10
-image_retention_days: 30
-max_stored_images: 5000
-cleanup_interval_hours: 6
-aws_monthly_budget_usd: 5.0
-source_inactivity_minutes: 30
+O Seiden Vision é a camada de percepção da plataforma Seiden. Ele analisa imagens, registra telemetria técnica e publica eventos normalizados. Dados operacionais consolidados, correlações de negócio e dashboards corporativos pertencem ao futuro Seiden FLOW.
+
+## Contrato canônico
+
+Cada análise concluída produz um evento `vision.analysis_completed`, versão de esquema `1.0`, contendo correlação, origem, sujeito, análise, qualidade, mídia e tempos de processamento. O evento fica disponível no atributo `canonical_event` do sensor da última análise e pode ser enviado por webhook.
+
+## API de análise
+
+`POST /api/v1/analyze` continua aceitando o formato legado e agora também aceita:
+
+```json
+{
+  "source_event_id": "bridge-event-123",
+  "origin": {"source_id": "entrada", "source_type": "reader", "device_id": "recepcao"},
+  "subject": {"person_id": "42", "person_name": "Eduardo"},
+  "image": {"url": "https://.../foto.jpg"},
+  "captured_at": "2026-07-23T18:00:00Z"
+}
 ```
 
-`person_event_cooldown_seconds` consolida capturas repetidas da mesma pessoa e fonte em um único evento operacional. As capturas continuam armazenadas para análise técnica.
+## Segurança
 
-## APIs adicionais
+Quando `api_key` estiver preenchida, endpoints que alteram estado exigem `Authorization: Bearer <token>`.
 
-- `GET /api/v1/audit`
-- `GET /api/v1/export/events.csv`
-- `GET /api/v1/export/daily.csv`
-- `GET /api/v1/management/summary`
+## Webhook para o FLOW
 
-## Custos
+Configure `webhook_enabled`, `webhook_url` e opcionalmente `webhook_api_key`. Falhas de webhook são registradas, mas não impedem o armazenamento técnico da análise.
 
-Os valores exibidos são estimativas do uso do Rekognition calculadas a partir das chamadas registradas e do preço configurado por mil imagens. Não substituem a fatura oficial da AWS.
+## Compatibilidade
 
-## Migração
-
-A inicialização adiciona automaticamente as novas colunas e a tabela de auditoria ao banco existente. Não é necessário apagar `seiden_vision.db`.
+Sensores, APIs gerenciais e banco SQLite das versões 0.3.x foram mantidos. O campo legado `operational` continua existindo como alias temporário de `quality_evaluation`.

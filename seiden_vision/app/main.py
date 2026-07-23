@@ -6,6 +6,7 @@ import io
 import logging
 from datetime import datetime, timezone
 from typing import Any
+from functools import wraps
 
 from flask import Flask, Response, jsonify, render_template, request
 
@@ -13,9 +14,9 @@ from config import DB_PATH, load_settings
 from database import Database
 from engine import AnalysisJob, VisionEngine
 from ha_client import HomeAssistantClient
+from version import VERSION
 
 
-VERSION = "0.3.2"
 settings = load_settings()
 
 logging.basicConfig(
@@ -34,6 +35,18 @@ engine = VisionEngine(settings, database, ha_client)
 app = Flask(__name__)
 engine.start()
 atexit.register(engine.stop)
+
+def require_api_key(function):
+    @wraps(function)
+    def wrapper(*args, **kwargs):
+        if not settings.api_key.strip():
+            return function(*args, **kwargs)
+        header = request.headers.get("Authorization", "")
+        token = header.removeprefix("Bearer ").strip()
+        if token != settings.api_key.strip():
+            return jsonify({"status": "error", "message": "Não autorizado."}), 401
+        return function(*args, **kwargs)
+    return wrapper
 
 
 @app.after_request
@@ -152,12 +165,18 @@ def export_daily_csv():
 
 
 @app.post("/api/v1/analyze")
+@require_api_key
 def analyze():
     payload: dict[str, Any] = request.get_json(silent=True) or {}
     image_url = str(payload.get("image_url", "")).strip()
-    source = str(payload.get("source", "Manual")).strip() or "Manual"
-    person = payload.get("person")
+    origin = payload.get("origin") if isinstance(payload.get("origin"), dict) else {}
+    subject = payload.get("subject") if isinstance(payload.get("subject"), dict) else {}
+    image = payload.get("image") if isinstance(payload.get("image"), dict) else {}
+    image_url = image_url or str(image.get("url", "")).strip()
+    source = str(payload.get("source") or origin.get("source_name") or origin.get("source_id") or "Manual").strip() or "Manual"
+    person = payload.get("person") or subject.get("person_name")
     captured_at = payload.get("captured_at")
+    source_event_id = payload.get("source_event_id") or (payload.get("correlation") or {}).get("source_event_id") if isinstance(payload.get("correlation"), dict) else payload.get("source_event_id")
 
     if not image_url:
         return jsonify({"status": "error", "message": "image_url é obrigatório."}), 400
@@ -169,6 +188,13 @@ def analyze():
                 image_url=image_url,
                 person=str(person) if person is not None else None,
                 captured_at=str(captured_at) if captured_at is not None else None,
+                source_event_id=str(source_event_id) if source_event_id else None,
+                capture_id=str((payload.get("correlation") or {}).get("capture_id")) if isinstance(payload.get("correlation"), dict) and (payload.get("correlation") or {}).get("capture_id") else None,
+                source_id=str(origin.get("source_id")) if origin.get("source_id") else None,
+                source_type=str(origin.get("source_type")) if origin.get("source_type") else None,
+                device_id=str(origin.get("device_id")) if origin.get("device_id") else None,
+                location_id=str(origin.get("location_id")) if origin.get("location_id") else None,
+                person_id=str(subject.get("person_id")) if subject.get("person_id") else None,
             )
         )
     except (ValueError, RuntimeError) as exc:
@@ -182,12 +208,14 @@ def analyze():
 
 
 @app.delete("/api/v1/analyses")
+@require_api_key
 def clear_analyses():
     count = database.clear()
     return jsonify({"status": "ok", "deleted": count})
 
 
 @app.post("/api/v1/provider/test")
+@require_api_key
 def provider_test():
     payload: dict[str, Any] = request.get_json(silent=True) or {}
     image_url = str(payload.get("image_url", "")).strip() or None
@@ -201,6 +229,7 @@ def provider_test():
 
 
 @app.post("/api/v1/publish-test")
+@require_api_key
 def publish_test():
     results = ha_client.publish_operational(
         provider=settings.provider,

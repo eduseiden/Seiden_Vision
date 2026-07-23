@@ -70,3 +70,19 @@ configuration:
     name: Fuso horário gerencial
   management_trend_days:
     name: Dias de tendência gerencial
+
+  api_key:
+    name: Chave da API
+    description: Protege os endpoints de alteração. Deixe vazio para manter o acesso pelo ingress sem autenticação adicional.
+  webhook_enabled:
+    name: Publicar por webhook
+    description: Envia o evento canônico de cada análise concluída para um sistema externo, como o Seiden FLOW.
+  webhook_url:
+    name: URL do webhook
+    description: Endpoint HTTP que receberá eventos vision.analysis_completed.
+  webhook_api_key:
+    name: Chave do webhook
+    description: Token Bearer enviado ao sistema de destino.
+  webhook_timeout_seconds:
+    name: Timeout do webhook
+    description: Tempo máximo para publicação do evento externo.

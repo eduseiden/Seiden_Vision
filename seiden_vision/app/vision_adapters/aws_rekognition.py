@@ -10,6 +10,7 @@ from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError, 
 from config import Settings
 from models.vision_result import VisionResult
 from vision_adapters.base import VisionAdapter
+from version import VERSION
 
 
 class AwsRekognitionAdapter(VisionAdapter):
@@ -26,7 +27,7 @@ class AwsRekognitionAdapter(VisionAdapter):
             connect_timeout=settings.aws_connect_timeout_seconds,
             read_timeout=settings.aws_read_timeout_seconds,
             retries={"max_attempts": settings.aws_max_attempts, "mode": "standard"},
-            user_agent_extra="Seiden-Vision/0.2.0",
+            user_agent_extra=f"Seiden-Vision/{VERSION}",
         )
         self.client = boto3.client(
             "rekognition",

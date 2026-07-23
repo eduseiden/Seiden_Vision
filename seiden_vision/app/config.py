@@ -26,7 +26,7 @@ class Settings:
     publish_to_home_assistant: bool = True
     source_enabled: bool = True
     source_name: str = "Entrada Principal"
-    source_entity_id: str = "sensor.seiden_evo_last_person"
+    source_entity_id: str = "sensor.seiden_last_person"
     source_photo_attribute: str = "photo_url"
     poll_interval_seconds: int = 3
     aws_region: str = "us-east-1"
@@ -48,6 +48,11 @@ class Settings:
     cleanup_interval_hours: int = 6
     aws_monthly_budget_usd: float = 5.0
     source_inactivity_minutes: int = 30
+    api_key: str = ""
+    webhook_enabled: bool = False
+    webhook_url: str = ""
+    webhook_api_key: str = ""
+    webhook_timeout_seconds: int = 10
 
     @property
     def supervisor_token(self) -> str:

@@ -1,4 +1,4 @@
-# Seiden Vision 0.3.2
+# Seiden Vision 0.4.0
 
 Add-on para Home Assistant OS voltado à análise de imagens e inteligência operacional.
 
