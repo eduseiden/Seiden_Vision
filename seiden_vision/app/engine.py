@@ -59,9 +59,6 @@ class VisionEngine:
         self.worker_thread = threading.Thread(
             target=self._worker_loop, name="vision-worker", daemon=True
         )
-        self.source_thread = threading.Thread(
-            target=self._source_loop, name="source-watcher", daemon=True
-        )
         self.bridge_event_thread = threading.Thread(
             target=self._bridge_event_loop, name="bridge-event-listener", daemon=True
         )
@@ -90,16 +87,14 @@ class VisionEngine:
             if removed:
                 LOGGER.info("Removidos %s registros antigos.", removed)
             self.worker_thread.start()
-            self.source_thread.start()
             self.bridge_event_thread.start()
             self.operational_thread.start()
             self.cleanup_thread.start()
             self.database.audit("engine_started", "info", f"Seiden Vision {VERSION} iniciado", {"provider": self.provider.name})
             LOGGER.info(
-                "Engine iniciado. Provider=%s, fonte=%s/%s, fila_max=%s",
+                "Engine iniciado. Provider=%s, fonte_evento=%s, fila_max=%s",
                 self.provider.name,
                 self.settings.source_enabled,
-                self.settings.source_mode,
                 self.queue.maxsize,
             )
 
@@ -141,9 +136,7 @@ class VisionEngine:
             ),
             "queue_size": self.queue.qsize(),
             "worker_alive": self.worker_thread.is_alive(),
-            "source_watcher_alive": self.source_thread.is_alive(),
             "bridge_event_listener_alive": self.bridge_event_thread.is_alive(),
-            "source_mode": self.settings.source_mode,
             "bridge_event": self.settings.bridge_event,
             "operational_publisher_alive": self.operational_thread.is_alive(),
             "cleanup_worker_alive": self.cleanup_thread.is_alive(),
@@ -426,15 +419,9 @@ class VisionEngine:
 
     def test_provider(self, image_url: str | None = None) -> dict[str, Any]:
         resolved_url = image_url
-        if not resolved_url and self.settings.source_enabled and self.ha_client.available:
-            state = self.ha_client.get_state(self.settings.source_entity_id)
-            if state:
-                resolved_url = state.get("attributes", {}).get(
-                    self.settings.source_photo_attribute
-                )
         if not resolved_url:
             raise ValueError(
-                "Nenhuma URL foi informada e a fonte configurada não possui foto disponível."
+                "Nenhuma URL de imagem foi informada para o teste."
             )
         image_bytes, content_type, download_ms = self._download(str(resolved_url))
         if self.provider.name == "aws_rekognition":
@@ -475,42 +462,9 @@ class VisionEngine:
             finally:
                 self.queue.task_done()
 
-    def _source_loop(self) -> None:
-        while not self.stop_event.is_set():
-            if (
-                self.settings.source_enabled
-                and self.settings.source_mode in ("entity", "hybrid")
-                and self.ha_client.available
-            ):
-                state = self.ha_client.get_state(self.settings.source_entity_id)
-                if state:
-                    attributes = state.get("attributes", {})
-                    image_url = attributes.get(self.settings.source_photo_attribute)
-                    person = state.get("state")
-                    if image_url and image_url != self.last_source_url:
-                        self.last_source_url = str(image_url)
-                        try:
-                            self.enqueue(
-                                AnalysisJob(
-                                    source=self.settings.source_name,
-                                    image_url=str(image_url),
-                                    person=None
-                                    if person in ("unknown", "unavailable")
-                                    else str(person),
-                                    source_id=self.settings.source_entity_id,
-                                    source_type="home_assistant_entity",
-                                )
-                            )
-                        except Exception as exc:
-                            LOGGER.warning(
-                                "Não foi possível enfileirar a fonte: %s", exc
-                            )
-            self.stop_event.wait(self.settings.poll_interval_seconds)
-
     def _bridge_event_loop(self) -> None:
         if not (
             self.settings.source_enabled
-            and self.settings.source_mode in ("event", "hybrid")
             and self.ha_client.available
         ):
             return

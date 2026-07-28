@@ -1,48 +1,11 @@
-# Seiden Vision 0.4.1
+# Seiden Vision 0.5.0
 
-## Papel arquitetural
+Camada de percepção do Seiden One. Transforma dados brutos em evidências enriquecidas.
 
-O Seiden Vision é a camada de percepção da plataforma Seiden. Ele analisa imagens, registra telemetria técnica e publica eventos normalizados. Dados operacionais consolidados, correlações de negócio e dashboards corporativos pertencem ao futuro Seiden FLOW.
+## Arquitetura unificada
 
+O Vision consome exclusivamente `seiden_bridge_event`. Não há mais leitura de `sensor.seiden_last_person`, polling de entidade ou modo híbrido.
 
-## Integração com o Seiden Bridge 0.8.3
+Inicialmente, processa eventos `person_authenticated` do conector EVO que contenham `operation.photo_url`. A saída enriquecida preserva o `event_id` do Bridge em `source_event_id` e é publicada como `vision.analysis_completed`.
 
-O Vision pode consumir diretamente o evento unificado `seiden_bridge_event` pelo WebSocket do Home Assistant. Apenas eventos com `event_type: person_authenticated`, `connector: evo` e `operation.photo_url` são enfileirados automaticamente.
-
-Modos disponíveis:
-
-- `event`: usa somente o evento unificado do Bridge;
-- `entity`: mantém a leitura de `sensor.seiden_last_person`;
-- `hybrid`: usa os dois durante a migração e evita reprocessar a mesma foto.
-
-O evento do Bridge é usado como evidência de origem. O Vision preserva o `event_id` em `source_event_id`, enriquece a imagem e publica `vision.analysis_completed`. Correlação entre evidências continua sendo responsabilidade do Seiden FLOW.
-
-## Contrato canônico
-
-Cada análise concluída produz um evento `vision.analysis_completed`, versão de esquema `1.0`, contendo correlação, origem, sujeito, análise, qualidade, mídia e tempos de processamento. O evento fica disponível no atributo `canonical_event` do sensor da última análise e pode ser enviado por webhook.
-
-## API de análise
-
-`POST /api/v1/analyze` continua aceitando o formato legado e agora também aceita:
-
-```json
-{
-  "source_event_id": "bridge-event-123",
-  "origin": {"source_id": "entrada", "source_type": "reader", "device_id": "recepcao"},
-  "subject": {"person_id": "42", "person_name": "Eduardo"},
-  "image": {"url": "https://.../foto.jpg"},
-  "captured_at": "2026-07-23T18:00:00Z"
-}
-```
-
-## Segurança
-
-Quando `api_key` estiver preenchida, endpoints que alteram estado exigem `Authorization: Bearer <token>`.
-
-## Webhook para o FLOW
-
-Configure `webhook_enabled`, `webhook_url` e opcionalmente `webhook_api_key`. Falhas de webhook são registradas, mas não impedem o armazenamento técnico da análise.
-
-## Compatibilidade
-
-Sensores, APIs gerenciais e banco SQLite das versões 0.3.x foram mantidos. O campo legado `operational` continua existindo como alias temporário de `quality_evaluation`.
+O Vision enriquece uma evidência; não correlaciona o conjunto nem conclui o que ocorreu na operação.

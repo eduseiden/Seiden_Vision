@@ -29,24 +29,12 @@ configuration:
   source_enabled:
     name: Enable automatic source
     description: Enables automatic image intake using the selected mode.
-  source_mode:
-    name: Source mode
-    description: event consumes the unified Seiden Bridge event; entity keeps entity polling; hybrid enables both during migration.
   bridge_event:
     name: Seiden Bridge event
     description: Unified Bridge event name listened to by Vision.
   source_name:
     name: Source name
     description: Friendly name for the reader or camera.
-  source_entity_id:
-    name: Source entity
-    description: Entity containing the photo URL.
-  source_photo_attribute:
-    name: Photo attribute
-    description: Attribute containing the image URL.
-  poll_interval_seconds:
-    name: Poll interval
-    description: Source entity polling frequency.
   aws_region:
     name: AWS Region
     description: Rekognition region, for example us-east-1.
@@ -58,7 +46,8 @@ configuration:
     description: Secret key for the dedicated IAM user. It is masked and never logged.
   aws_max_analyses_per_day:
     name: AWS daily limit
-    description: Blocks new calls after this number of completed AWS analyses per day.
+    description: Blocks new calls after this number of completed AWS analyses per
+      day.
   aws_store_raw_response:
     name: Store raw AWS response
     description: Stores the full Rekognition JSON in SQLite for diagnostics.
@@ -71,18 +60,18 @@ configuration:
   aws_max_attempts:
     name: AWS attempts
     description: Maximum attempts using the SDK standard retry mode.
-
   management_timezone:
     name: Fuso horário gerencial
   management_trend_days:
     name: Dias de tendência gerencial
-
   api_key:
     name: API key
-    description: Protects mutating endpoints. Leave empty to rely only on Home Assistant ingress.
+    description: Protects mutating endpoints. Leave empty to rely only on Home Assistant
+      ingress.
   webhook_enabled:
     name: Publish by webhook
-    description: Sends the canonical event for each completed analysis to an external system such as Seiden FLOW.
+    description: Sends the canonical event for each completed analysis to an external
+      system such as Seiden FLOW.
   webhook_url:
     name: Webhook URL
     description: HTTP endpoint that receives vision.analysis_completed events.

@@ -25,12 +25,8 @@ class Settings:
     history_retention_days: int = 90
     publish_to_home_assistant: bool = True
     source_enabled: bool = True
-    source_mode: str = "hybrid"
     bridge_event: str = "seiden_bridge_event"
     source_name: str = "Entrada Principal"
-    source_entity_id: str = "sensor.seiden_last_person"
-    source_photo_attribute: str = "photo_url"
-    poll_interval_seconds: int = 3
     aws_region: str = "us-east-1"
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""

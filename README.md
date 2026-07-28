@@ -1,18 +1,11 @@
-# Seiden Vision 0.4.1
+# Seiden Vision 0.5.0
 
-Add-on para Home Assistant OS voltado à análise de imagens e inteligência operacional.
+Camada de percepção do Seiden One. Transforma dados brutos em evidências enriquecidas.
 
-## Destaques
+## Arquitetura unificada
 
-- AWS Rekognition e provider mock.
-- Dashboard técnico e gerencial.
-- Capturas versus eventos operacionais consolidados.
-- Saúde, auditoria, retenção, percentis de desempenho e custos AWS diário/semanal/mensal.
-- APIs REST e exportação CSV.
+O Vision consome exclusivamente `seiden_bridge_event`. Não há mais leitura de `sensor.seiden_last_person`, polling de entidade ou modo híbrido.
 
-Consulte `seiden_vision/DOCS.md` e `seiden_vision/CHANGELOG.md`.
+Inicialmente, processa eventos `person_authenticated` do conector EVO que contenham `operation.photo_url`. A saída enriquecida preserva o `event_id` do Bridge em `source_event_id` e é publicada como `vision.analysis_completed`.
 
-
-## Integração 0.4.1
-
-O Vision pode consumir diretamente `seiden_bridge_event` do Seiden Bridge 0.8.3, mantendo a entidade legada como fallback no modo `hybrid`.
+O Vision enriquece uma evidência; não correlaciona o conjunto nem conclui o que ocorreu na operação.

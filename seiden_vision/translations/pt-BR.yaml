@@ -29,24 +29,12 @@ configuration:
   source_enabled:
     name: Ativar fonte automática
     description: Ativa o consumo automático de imagens pelo modo selecionado.
-  source_mode:
-    name: Modo da fonte
-    description: event usa o evento unificado do Seiden Bridge; entity mantém a leitura da entidade; hybrid ativa ambos durante a transição.
   bridge_event:
     name: Evento do Seiden Bridge
     description: Nome do evento unificado do Bridge escutado pelo Vision.
   source_name:
     name: Nome da fonte
     description: Nome amigável do leitor ou câmera.
-  source_entity_id:
-    name: Entidade de origem
-    description: Entidade que contém a URL da foto.
-  source_photo_attribute:
-    name: Atributo da foto
-    description: Nome do atributo que contém a URL da imagem.
-  poll_interval_seconds:
-    name: Intervalo de consulta
-    description: Frequência de leitura da entidade de origem.
   aws_region:
     name: Região AWS
     description: Região do Rekognition, por exemplo us-east-1.
@@ -55,13 +43,16 @@ configuration:
     description: Chave do usuário IAM exclusivo do Seiden Vision. O campo é mascarado.
   aws_secret_access_key:
     name: AWS Secret Access Key
-    description: Segredo do usuário IAM exclusivo. O campo é mascarado e nunca é registrado nos logs.
+    description: Segredo do usuário IAM exclusivo. O campo é mascarado e nunca é registrado
+      nos logs.
   aws_max_analyses_per_day:
     name: Limite diário AWS
-    description: Bloqueia novas chamadas após esta quantidade de análises AWS concluídas no dia.
+    description: Bloqueia novas chamadas após esta quantidade de análises AWS concluídas
+      no dia.
   aws_store_raw_response:
     name: Armazenar retorno bruto da AWS
-    description: Salva o JSON completo do Rekognition dentro do registro SQLite para diagnóstico.
+    description: Salva o JSON completo do Rekognition dentro do registro SQLite para
+      diagnóstico.
   aws_connect_timeout_seconds:
     name: Timeout de conexão AWS
     description: Tempo máximo para estabelecer conexão com a AWS.
@@ -71,18 +62,18 @@ configuration:
   aws_max_attempts:
     name: Tentativas AWS
     description: Número máximo de tentativas usando o modo padrão de retry do SDK.
-
   management_timezone:
     name: Fuso horário gerencial
   management_trend_days:
     name: Dias de tendência gerencial
-
   api_key:
     name: Chave da API
-    description: Protege os endpoints de alteração. Deixe vazio para manter o acesso pelo ingress sem autenticação adicional.
+    description: Protege os endpoints de alteração. Deixe vazio para manter o acesso
+      pelo ingress sem autenticação adicional.
   webhook_enabled:
     name: Publicar por webhook
-    description: Envia o evento canônico de cada análise concluída para um sistema externo, como o Seiden FLOW.
+    description: Envia o evento canônico de cada análise concluída para um sistema
+      externo, como o Seiden FLOW.
   webhook_url:
     name: URL do webhook
     description: Endpoint HTTP que receberá eventos vision.analysis_completed.

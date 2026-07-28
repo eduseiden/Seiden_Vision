@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0 — Evento unificado sem fallback legado
+
+- Remove `source_mode`, polling de entidade e `sensor.seiden_last_person`.
+- Consome exclusivamente `seiden_bridge_event`.
+- Preserva correlação por `source_event_id`.
+
+# Changelog
+
 ## 0.4.1 — Bridge event integration
 
 - Adicionado consumo direto do evento unificado `seiden_bridge_event` via WebSocket do Home Assistant.
