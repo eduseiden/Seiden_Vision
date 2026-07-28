@@ -27,8 +27,14 @@ configuration:
     name: Publicar no Home Assistant
     description: Cria e atualiza sensores REST no Home Assistant.
   source_enabled:
-    name: Monitorar fonte do Home Assistant
-    description: Observa automaticamente a entidade configurada.
+    name: Ativar fonte automática
+    description: Ativa o consumo automático de imagens pelo modo selecionado.
+  source_mode:
+    name: Modo da fonte
+    description: event usa o evento unificado do Seiden Bridge; entity mantém a leitura da entidade; hybrid ativa ambos durante a transição.
+  bridge_event:
+    name: Evento do Seiden Bridge
+    description: Nome do evento unificado do Bridge escutado pelo Vision.
   source_name:
     name: Nome da fonte
     description: Nome amigável do leitor ou câmera.

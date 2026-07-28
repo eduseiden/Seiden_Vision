@@ -1,2 +1,2 @@
-VERSION = "0.4.0"
+VERSION = "0.4.1"
 SCHEMA_VERSION = "1.0"

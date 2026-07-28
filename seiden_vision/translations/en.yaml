@@ -27,8 +27,14 @@ configuration:
     name: Publish to Home Assistant
     description: Creates and updates REST state sensors.
   source_enabled:
-    name: Watch Home Assistant source
-    description: Automatically observes the configured entity.
+    name: Enable automatic source
+    description: Enables automatic image intake using the selected mode.
+  source_mode:
+    name: Source mode
+    description: event consumes the unified Seiden Bridge event; entity keeps entity polling; hybrid enables both during migration.
+  bridge_event:
+    name: Seiden Bridge event
+    description: Unified Bridge event name listened to by Vision.
   source_name:
     name: Source name
     description: Friendly name for the reader or camera.

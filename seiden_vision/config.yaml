@@ -1,5 +1,5 @@
 name: Seiden Vision
-version: "0.4.0"
+version: "0.4.1"
 slug: seiden_vision
 description: Plataforma local de orquestração e análise de imagens
 url: https://github.com/eduseiden/Seiden_Vision
@@ -35,6 +35,8 @@ options:
   history_retention_days: 90
   publish_to_home_assistant: true
   source_enabled: true
+  source_mode: hybrid
+  bridge_event: seiden_bridge_event
   source_name: Entrada Principal
   source_entity_id: sensor.seiden_last_person
   source_photo_attribute: photo_url
@@ -73,6 +75,8 @@ schema:
   history_retention_days: int(1,3650)
   publish_to_home_assistant: bool
   source_enabled: bool
+  source_mode: list(event|entity|hybrid)
+  bridge_event: str
   source_name: str
   source_entity_id: str
   source_photo_attribute: str

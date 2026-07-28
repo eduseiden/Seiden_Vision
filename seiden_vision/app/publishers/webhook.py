@@ -12,7 +12,7 @@ class WebhookPublisher:
         self.url = url.strip()
         self.timeout = timeout
         self.session = requests.Session()
-        self.session.headers.update({"Content-Type": "application/json", "User-Agent": "Seiden-Vision/0.4.0"})
+        self.session.headers.update({"Content-Type": "application/json", "User-Agent": "Seiden-Vision/0.4.1"})
         if api_key.strip():
             self.session.headers["Authorization"] = f"Bearer {api_key.strip()}"
 

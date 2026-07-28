@@ -62,6 +62,9 @@ class VisionEngine:
         self.source_thread = threading.Thread(
             target=self._source_loop, name="source-watcher", daemon=True
         )
+        self.bridge_event_thread = threading.Thread(
+            target=self._bridge_event_loop, name="bridge-event-listener", daemon=True
+        )
         self.operational_thread = threading.Thread(
             target=self._operational_loop, name="operational-publisher", daemon=True
         )
@@ -69,6 +72,7 @@ class VisionEngine:
             target=self._cleanup_loop, name="retention-cleaner", daemon=True
         )
         self.last_source_url: str | None = None
+        self.last_source_event_id: str | None = None
         self.last_processing_ms: int | None = None
         self.started_at = datetime.now(timezone.utc)
         self._started = False
@@ -87,13 +91,15 @@ class VisionEngine:
                 LOGGER.info("Removidos %s registros antigos.", removed)
             self.worker_thread.start()
             self.source_thread.start()
+            self.bridge_event_thread.start()
             self.operational_thread.start()
             self.cleanup_thread.start()
             self.database.audit("engine_started", "info", f"Seiden Vision {VERSION} iniciado", {"provider": self.provider.name})
             LOGGER.info(
-                "Engine iniciado. Provider=%s, fonte_ha=%s, fila_max=%s",
+                "Engine iniciado. Provider=%s, fonte=%s/%s, fila_max=%s",
                 self.provider.name,
                 self.settings.source_enabled,
+                self.settings.source_mode,
                 self.queue.maxsize,
             )
 
@@ -136,6 +142,9 @@ class VisionEngine:
             "queue_size": self.queue.qsize(),
             "worker_alive": self.worker_thread.is_alive(),
             "source_watcher_alive": self.source_thread.is_alive(),
+            "bridge_event_listener_alive": self.bridge_event_thread.is_alive(),
+            "source_mode": self.settings.source_mode,
+            "bridge_event": self.settings.bridge_event,
             "operational_publisher_alive": self.operational_thread.is_alive(),
             "cleanup_worker_alive": self.cleanup_thread.is_alive(),
             "source_enabled": self.settings.source_enabled,
@@ -468,7 +477,11 @@ class VisionEngine:
 
     def _source_loop(self) -> None:
         while not self.stop_event.is_set():
-            if self.settings.source_enabled and self.ha_client.available:
+            if (
+                self.settings.source_enabled
+                and self.settings.source_mode in ("entity", "hybrid")
+                and self.ha_client.available
+            ):
                 state = self.ha_client.get_state(self.settings.source_entity_id)
                 if state:
                     attributes = state.get("attributes", {})
@@ -493,6 +506,70 @@ class VisionEngine:
                                 "Não foi possível enfileirar a fonte: %s", exc
                             )
             self.stop_event.wait(self.settings.poll_interval_seconds)
+
+    def _bridge_event_loop(self) -> None:
+        if not (
+            self.settings.source_enabled
+            and self.settings.source_mode in ("event", "hybrid")
+            and self.ha_client.available
+        ):
+            return
+        self.ha_client.listen_event(
+            self.settings.bridge_event,
+            self._handle_bridge_event,
+            self.stop_event,
+        )
+
+    def _handle_bridge_event(self, event: dict[str, Any]) -> None:
+        payload = event.get("data") if isinstance(event.get("data"), dict) else {}
+        if payload.get("source") != "seiden_bridge":
+            return
+        if payload.get("event_type") != "person_authenticated":
+            return
+        connection = payload.get("connection") if isinstance(payload.get("connection"), dict) else {}
+        if connection.get("connector") != "evo":
+            return
+
+        operation = payload.get("operation") if isinstance(payload.get("operation"), dict) else {}
+        subject = payload.get("subject") if isinstance(payload.get("subject"), dict) else {}
+        raw = payload.get("raw") if isinstance(payload.get("raw"), dict) else {}
+        image_url = operation.get("photo_url") or payload.get("photo_url")
+        if not image_url:
+            LOGGER.debug("Evento Bridge sem foto ignorado: %s", payload.get("event_id"))
+            return
+
+        source_event_id = str(payload.get("event_id") or "").strip() or None
+        if source_event_id and source_event_id == self.last_source_event_id:
+            return
+        self.last_source_event_id = source_event_id
+        self.last_source_url = str(image_url)
+
+        source_name = str(connection.get("name") or self.settings.source_name)
+        person_name = subject.get("name") or payload.get("user_name") or raw.get("name")
+        person_id = subject.get("external_id") or payload.get("user_id") or raw.get("enrollid")
+        endpoint = connection.get("endpoint") if isinstance(connection.get("endpoint"), dict) else {}
+        try:
+            self.enqueue(
+                AnalysisJob(
+                    source=source_name,
+                    image_url=str(image_url),
+                    person=str(person_name) if person_name is not None else None,
+                    captured_at=str(payload.get("timestamp")) if payload.get("timestamp") else None,
+                    source_event_id=source_event_id,
+                    source_id=str(connection.get("id")) if connection.get("id") else None,
+                    source_type="seiden_bridge",
+                    device_id=str(endpoint.get("host")) if endpoint.get("host") else None,
+                    person_id=str(person_id) if person_id is not None else None,
+                )
+            )
+            LOGGER.info(
+                "Evento Bridge enfileirado: %s | pessoa=%s | fonte=%s",
+                source_event_id or "sem id",
+                person_name or "não informada",
+                source_name,
+            )
+        except Exception as exc:
+            LOGGER.warning("Não foi possível enfileirar evento do Bridge: %s", exc)
 
     def _operational_loop(self) -> None:
         while not self.stop_event.is_set():

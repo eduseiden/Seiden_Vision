@@ -1,8 +1,21 @@
-# Seiden Vision 0.4.0
+# Seiden Vision 0.4.1
 
 ## Papel arquitetural
 
 O Seiden Vision é a camada de percepção da plataforma Seiden. Ele analisa imagens, registra telemetria técnica e publica eventos normalizados. Dados operacionais consolidados, correlações de negócio e dashboards corporativos pertencem ao futuro Seiden FLOW.
+
+
+## Integração com o Seiden Bridge 0.8.3
+
+O Vision pode consumir diretamente o evento unificado `seiden_bridge_event` pelo WebSocket do Home Assistant. Apenas eventos com `event_type: person_authenticated`, `connector: evo` e `operation.photo_url` são enfileirados automaticamente.
+
+Modos disponíveis:
+
+- `event`: usa somente o evento unificado do Bridge;
+- `entity`: mantém a leitura de `sensor.seiden_last_person`;
+- `hybrid`: usa os dois durante a migração e evita reprocessar a mesma foto.
+
+O evento do Bridge é usado como evidência de origem. O Vision preserva o `event_id` em `source_event_id`, enriquece a imagem e publica `vision.analysis_completed`. Correlação entre evidências continua sendo responsabilidade do Seiden FLOW.
 
 ## Contrato canônico
 

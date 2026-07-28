@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.1 — Bridge event integration
+
+- Adicionado consumo direto do evento unificado `seiden_bridge_event` via WebSocket do Home Assistant.
+- Eventos `person_authenticated` do conector EVO são convertidos em trabalhos de análise com correlação por `event_id`.
+- Novo `source_mode`: `event`, `entity` ou `hybrid`.
+- Modo padrão `hybrid` preserva a entidade `sensor.seiden_last_person` durante a transição e evita duplicidade pela URL da foto.
+- Mantida a API `/api/v1/analyze` e o evento canônico `vision.analysis_completed`.
+- O Vision não interpreta MQTT nem correlaciona eventos operacionais; apenas enriquece evidências que possuam mídia analisável.
+
 ## 0.4.0 — FLOW-ready perception layer
 
 - Removidas referências padrão ao fabricante EVO.

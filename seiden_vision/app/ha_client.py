@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
 import logging
-from typing import Any
+import threading
+from typing import Any, Callable
 
 import requests
+import websocket
 
 
 LOGGER = logging.getLogger(__name__)
@@ -25,6 +28,66 @@ class HomeAssistantClient:
     @property
     def available(self) -> bool:
         return bool(self.token)
+
+
+    def listen_event(
+        self,
+        event_type: str,
+        callback: Callable[[dict[str, Any]], None],
+        stop_event: threading.Event,
+    ) -> None:
+        """Mantém uma assinatura no WebSocket do Home Assistant.
+
+        Reconecta automaticamente enquanto ``stop_event`` não estiver acionado.
+        """
+        if not self.available:
+            return
+
+        url = "ws://supervisor/core/websocket"
+        while not stop_event.is_set():
+            ws = None
+            try:
+                ws = websocket.create_connection(url, timeout=self.timeout)
+                hello = json.loads(ws.recv())
+                if hello.get("type") == "auth_required":
+                    ws.send(json.dumps({"type": "auth", "access_token": self.token}))
+                    auth = json.loads(ws.recv())
+                    if auth.get("type") != "auth_ok":
+                        raise RuntimeError(f"Falha de autenticação no WebSocket: {auth}")
+
+                ws.send(json.dumps({
+                    "id": 1,
+                    "type": "subscribe_events",
+                    "event_type": event_type,
+                }))
+                subscribed = json.loads(ws.recv())
+                if subscribed.get("type") != "result" or not subscribed.get("success"):
+                    raise RuntimeError(f"Falha ao assinar evento {event_type}: {subscribed}")
+
+                LOGGER.info("Assinatura ativa no evento %s.", event_type)
+                ws.settimeout(5)
+                while not stop_event.is_set():
+                    try:
+                        message = json.loads(ws.recv())
+                    except websocket.WebSocketTimeoutException:
+                        continue
+                    if message.get("type") != "event":
+                        continue
+                    event = message.get("event") or {}
+                    try:
+                        callback(event)
+                    except Exception:
+                        LOGGER.exception("Falha ao processar evento %s.", event_type)
+            except Exception as exc:
+                if not stop_event.is_set():
+                    LOGGER.warning("WebSocket de eventos indisponível: %s", exc)
+                    stop_event.wait(5)
+            finally:
+                if ws is not None:
+                    try:
+                        ws.close()
+                    except Exception:
+                        pass
 
     def get_state(self, entity_id: str) -> dict[str, Any] | None:
         if not self.available:

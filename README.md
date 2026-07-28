@@ -1,4 +1,4 @@
-# Seiden Vision 0.4.0
+# Seiden Vision 0.4.1
 
 Add-on para Home Assistant OS voltado à análise de imagens e inteligência operacional.
 
@@ -11,3 +11,8 @@ Add-on para Home Assistant OS voltado à análise de imagens e inteligência ope
 - APIs REST e exportação CSV.
 
 Consulte `seiden_vision/DOCS.md` e `seiden_vision/CHANGELOG.md`.
+
+
+## Integração 0.4.1
+
+O Vision pode consumir diretamente `seiden_bridge_event` do Seiden Bridge 0.8.3, mantendo a entidade legada como fallback no modo `hybrid`.

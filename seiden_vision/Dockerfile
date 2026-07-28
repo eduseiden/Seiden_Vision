@@ -10,6 +10,7 @@ RUN apk add --no-cache \
       Flask==3.1.1 \
       gunicorn==23.0.0 \
       requests==2.32.4 \
+      websocket-client==1.8.0 \
       boto3==1.43.44
 
 COPY app /app
