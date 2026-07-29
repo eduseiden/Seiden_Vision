@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.3.1 — Correção de inicialização
+
+- Restaura `SCHEMA_VERSION` em `app/version.py`, corrigindo o `ImportError` durante o boot do Gunicorn.
+- Atualiza a versão do add-on para permitir a atualização normal pelo repositório GitHub/Home Assistant.
+- Mantém integralmente a migração e o arquivo persistente de perfis ambientais introduzidos na 0.8.3.
+
 ## 0.8.3 — Perfis acessíveis pelo File Editor
 
 - move o arquivo autoritativo para `/config/seiden_vision/environmental_profiles.json`, visível diretamente no File Editor;

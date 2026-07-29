@@ -1,4 +1,4 @@
-# Seiden Vision 0.8.3
+# Seiden Vision 0.8.3.1
 
 Camada de percepção do Seiden One. Transforma dados brutos em evidências enriquecidas.
 

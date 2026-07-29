@@ -1,4 +1,4 @@
-# Seiden Vision 0.8.3
+# Seiden Vision 0.8.3.1
 
 Camada de percepção e enriquecimento de evidências do Seiden One.
 
@@ -15,7 +15,7 @@ O Vision enriquece evidências. A correlação operacional e a apresentação co
 
 ## Perfis ambientais
 
-A versão 0.8.3 mantém todos os parâmetros ambientais em um arquivo JSON autoritativo e editável pelo usuário:
+A versão 0.8.3.1 mantém todos os parâmetros ambientais em um arquivo JSON autoritativo e editável pelo usuário:
 
 ```text
 /config/seiden_vision/environmental_profiles.json
