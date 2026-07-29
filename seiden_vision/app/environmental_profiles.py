@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
+import tempfile
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,8 +12,9 @@ from typing import Any
 
 LOGGER = logging.getLogger(__name__)
 
-DEFAULT_PROFILES_PATH = Path(__file__).resolve().parent / "profiles" / "environmental_profiles.json"
-CUSTOM_PROFILES_PATH = Path("/config/environmental_profiles.json")
+FACTORY_PROFILES_PATH = Path(__file__).resolve().parent / "profiles" / "environmental_profiles.default.json"
+PERSISTENT_PROFILES_PATH = Path("/config/environmental_profiles.json")
+CONFIGURATION_MODE = "authoritative"
 
 
 @dataclass(frozen=True)
@@ -47,24 +50,37 @@ def _deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]
     return merged
 
 
-def _load_json(path: Path, *, required: bool) -> dict[str, Any]:
+def _read_document(path: Path) -> dict[str, Any]:
     if not path.exists():
-        if required:
-            raise FileNotFoundError(f"Arquivo de perfis não encontrado: {path}")
-        return {}
+        raise FileNotFoundError(f"Arquivo de perfis não encontrado: {path}")
     try:
         content = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        if required:
-            raise ValueError(f"Falha ao carregar perfis de {path}: {exc}") from exc
-        LOGGER.error("Arquivo de perfis customizados inválido (%s): %s", path, exc)
-        return {}
+        raise ValueError(f"Falha ao carregar perfis de {path}: {exc}") from exc
     if not isinstance(content, dict):
         raise ValueError(f"O arquivo {path} deve conter um objeto JSON.")
-    profiles = content.get("profiles", content)
-    if not isinstance(profiles, dict):
-        raise ValueError(f"A propriedade 'profiles' de {path} deve ser um objeto.")
-    return profiles
+    profiles = content.get("profiles")
+    if not isinstance(profiles, dict) or not profiles:
+        raise ValueError(f"A propriedade 'profiles' de {path} deve ser um objeto não vazio.")
+    return content
+
+
+def _write_document_atomic(path: Path, document: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(document, ensure_ascii=False, indent=2) + "\n"
+    fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_name, path)
+    except Exception:
+        try:
+            os.unlink(temporary_name)
+        except OSError:
+            pass
+        raise
 
 
 def _number(value: Any, field: str) -> float:
@@ -138,25 +154,66 @@ def _build_profile(profile_id: str, raw: dict[str, Any], source: str, customized
     )
 
 
+def _validate_profiles(profiles: dict[str, Any], source: str) -> None:
+    if "human_indoor" not in profiles:
+        raise ValueError("O arquivo de perfis exige o perfil de fallback 'human_indoor'.")
+    for profile_id, raw in profiles.items():
+        if not isinstance(profile_id, str) or not profile_id.strip():
+            raise ValueError("Todo profile_id deve ser uma string não vazia.")
+        _build_profile(profile_id, raw, source, customized=(source != "persistent_default"))
+
+
+def _prepare_persistent_document() -> dict[str, Any]:
+    factory_document = _read_document(FACTORY_PROFILES_PATH)
+    factory_profiles = factory_document["profiles"]
+    _validate_profiles(factory_profiles, "factory")
+
+    if not PERSISTENT_PROFILES_PATH.exists():
+        _write_document_atomic(PERSISTENT_PROFILES_PATH, factory_document)
+        LOGGER.info("Arquivo de perfis ambientais criado em %s", PERSISTENT_PROFILES_PATH)
+        return factory_document
+
+    persistent_document = _read_document(PERSISTENT_PROFILES_PATH)
+
+    # Migração transparente da 0.8.1: aquele arquivo representava apenas overrides.
+    if persistent_document.get("configuration_mode") != CONFIGURATION_MODE:
+        merged_profiles = deepcopy(factory_profiles)
+        for profile_id, override in persistent_document["profiles"].items():
+            base = merged_profiles.get(profile_id, {})
+            merged_profiles[profile_id] = _deep_merge(base, override)
+        migrated_document = {
+            "schema_version": "1.0",
+            "configuration_mode": CONFIGURATION_MODE,
+            "managed_by": "seiden_vision",
+            "profiles": merged_profiles,
+        }
+        _validate_profiles(merged_profiles, "persistent_file")
+        _write_document_atomic(PERSISTENT_PROFILES_PATH, migrated_document)
+        LOGGER.info("Arquivo legado de perfis ambientais migrado para o formato autoritativo em %s", PERSISTENT_PROFILES_PATH)
+        return migrated_document
+
+    _validate_profiles(persistent_document["profiles"], "persistent_file")
+    return persistent_document
+
+
 class EnvironmentalProfileRegistry:
-    """Carrega perfis padrão, customizações locais e overrides por fonte."""
+    """Usa o JSON persistente como fonte única dos parâmetros ambientais."""
 
     def __init__(self) -> None:
-        self._default_profiles = _load_json(DEFAULT_PROFILES_PATH, required=True)
+        document = _prepare_persistent_document()
+        self._profiles = document["profiles"]
+        LOGGER.info(
+            "Perfis ambientais carregados de %s (%d perfis)",
+            PERSISTENT_PROFILES_PATH,
+            len(self._profiles),
+        )
 
     def resolve(self, requested_profile_id: str, profile_override: Any = None) -> tuple[EnvironmentalProfile, bool]:
-        custom_profiles = _load_json(CUSTOM_PROFILES_PATH, required=False)
-        profile_fallback = requested_profile_id not in self._default_profiles and requested_profile_id not in custom_profiles
+        profile_fallback = requested_profile_id not in self._profiles
         resolved_id = requested_profile_id if not profile_fallback else "human_indoor"
-
-        base = self._default_profiles.get(resolved_id, {})
-        source = "default"
+        base = deepcopy(self._profiles[resolved_id])
+        source = "persistent_file"
         customized = False
-
-        if resolved_id in custom_profiles:
-            base = _deep_merge(base, custom_profiles[resolved_id])
-            source = "custom_profile"
-            customized = True
 
         if isinstance(profile_override, dict) and profile_override:
             base = _deep_merge(base, profile_override)

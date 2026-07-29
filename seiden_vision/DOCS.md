@@ -16,13 +16,39 @@ O Vision reconhece eventos `mqtt.message_received` originados no Seiden Bridge q
 
 A versão 0.8.0 preserva a identidade definida no Environmental Source Registry do Bridge. `source_name`, `location_name`, `asset_*`, `profile_id` e `description` passam a ter prioridade sobre nomes derivados do tópico MQTT. Eventos legados continuam usando o tópico como fallback.
 
-## Perfis ambientais 0.8.0
+## Perfis ambientais configuráveis
 
-O `profile_id` cadastrado na Seiden Bridge define como a medição é interpretada. Perfis disponíveis: `human_indoor`, `human_outdoor`, `refrigerator`, `freezer`, `wine_cellar` e `beer_cooler`.
+A versão 0.8.2 usa um único arquivo persistente como fonte dos parâmetros ambientais:
 
-A análise enriquecida inclui `analysis_type`, `environmental_score`, `operational_state`, scores por métrica e códigos de motivo. O campo `comfort_score` permanece como alias de compatibilidade durante a evolução do FLOW.
+```text
+/config/environmental_profiles.json
+```
 
-Os presets são referências operacionais iniciais e serão configuráveis em versão posterior. Um perfil desconhecido não interrompe o processamento: ele usa `human_indoor` como fallback e marca `profile_fallback: true`.
+No Home Assistant, ele fica visível em:
+
+```text
+/addon_configs/<id>_seiden_vision/environmental_profiles.json
+```
+
+Na primeira inicialização, o Vision cria automaticamente esse arquivo com todos os perfis padrão. Depois disso, basta editar os valores e reiniciar o add-on. Atualizações não sobrescrevem o arquivo persistente.
+
+O arquivo distribuído com a imagem existe apenas como modelo de instalação inicial:
+
+```text
+/app/profiles/environmental_profiles.default.json
+```
+
+Não há uma segunda cópia das faixas no código Python. O JSON persistente é autoritativo.
+
+A ordem das faixas deve ser:
+
+```text
+critical.min <= attention.min <= optimal.min <= optimal.max <= attention.max <= critical.max
+```
+
+O evento `environment.observation` informa as faixas efetivamente usadas em `analysis.applied_ranges`. A origem será `persistent_file` ou `source_override`.
+
+Overrides individuais enviados pela Bridge continuam tendo prioridade sobre o arquivo persistente.
 
 ## Perfis ambientais configuráveis
 

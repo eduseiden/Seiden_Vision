@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.2 — Arquivo autoritativo de perfis ambientais
+
+- cria automaticamente `/config/environmental_profiles.json` na primeira inicialização;
+- entrega todos os parâmetros padrão já preenchidos e visíveis em `addon_configs`;
+- passa a usar o arquivo persistente como fonte única das faixas ambientais;
+- remove a combinação contínua entre perfis internos e arquivo de customização;
+- preserva o arquivo editado durante atualizações do add-on;
+- migra automaticamente arquivos parciais da 0.8.1 para o formato completo e autoritativo;
+- valida todos os perfis e exige `human_indoor` como fallback;
+- mantém `profile_override` da Bridge como prioridade máxima;
+- mantém o schema canônico 2.0 e não exige migração de banco.
+
 ## 0.8.0 — Environmental Profiles
 
 - adiciona interpretação ambiental por `profile_id` recebido da Seiden Bridge;
