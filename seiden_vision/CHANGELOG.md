@@ -98,3 +98,12 @@
 - Calcula `comfort_score` determinístico de 0 a 100 com regras transparentes.
 - Preserva `correlation.source_event_id` e evita reprocessamento em memória.
 - Expõe os analyzers ativos no endpoint de saúde.
+
+## 0.8.1
+
+- Move os perfis ambientais padrão para `app/profiles/environmental_profiles.json`.
+- Permite customizar ou criar perfis por meio de `/config/environmental_profiles.json`.
+- Aceita `profile_override` por fonte, recebido no evento da Seiden Bridge.
+- Valida coerência das faixas e pesos antes de aplicar o ruleset.
+- Publica `ruleset_source`, `profile_customized` e `applied_ranges` no evento enriquecido.
+- Mantém fallback seguro para `human_indoor` quando o perfil solicitado não existe.

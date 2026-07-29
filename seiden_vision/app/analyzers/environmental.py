@@ -3,12 +3,12 @@ from __future__ import annotations
 import re
 import unicodedata
 import uuid
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
 from analyzers.base import Analyzer
 from version import SCHEMA_VERSION
+from environmental_profiles import EnvironmentalProfile, MetricBand, PROFILE_REGISTRY
 
 
 def _utc_now() -> str:
@@ -43,79 +43,6 @@ def _first_text(*values: Any) -> str | None:
         if text is not None:
             return text
     return None
-
-
-@dataclass(frozen=True)
-class MetricBand:
-    optimal_min: float
-    optimal_max: float
-    attention_min: float
-    attention_max: float
-    critical_min: float
-    critical_max: float
-    weight: float = 1.0
-
-
-@dataclass(frozen=True)
-class EnvironmentalProfile:
-    profile_id: str
-    label: str
-    analysis_type: str
-    temperature: MetricBand
-    humidity: MetricBand | None
-    ruleset: str
-
-
-PROFILES: dict[str, EnvironmentalProfile] = {
-    "human_indoor": EnvironmentalProfile(
-        profile_id="human_indoor",
-        label="Conforto humano interno",
-        analysis_type="human_comfort",
-        temperature=MetricBand(21.0, 25.0, 18.0, 28.0, 15.0, 32.0, 0.5),
-        humidity=MetricBand(40.0, 60.0, 30.0, 70.0, 20.0, 80.0, 0.5),
-        ruleset="seiden_environmental_profile_human_indoor_v1",
-    ),
-    "human_outdoor": EnvironmentalProfile(
-        profile_id="human_outdoor",
-        label="Ambiente externo",
-        analysis_type="informational",
-        temperature=MetricBand(18.0, 28.0, 10.0, 35.0, 0.0, 42.0, 0.7),
-        humidity=MetricBand(35.0, 75.0, 20.0, 90.0, 10.0, 100.0, 0.3),
-        ruleset="seiden_environmental_profile_human_outdoor_v1",
-    ),
-    "refrigerator": EnvironmentalProfile(
-        profile_id="refrigerator",
-        label="Geladeira",
-        analysis_type="environmental_compliance",
-        temperature=MetricBand(2.0, 5.0, 0.0, 8.0, -2.0, 10.0, 1.0),
-        humidity=None,
-        ruleset="seiden_environmental_profile_refrigerator_v1",
-    ),
-    "freezer": EnvironmentalProfile(
-        profile_id="freezer",
-        label="Freezer",
-        analysis_type="environmental_compliance",
-        temperature=MetricBand(-22.0, -18.0, -25.0, -15.0, -30.0, -12.0, 1.0),
-        humidity=None,
-        ruleset="seiden_environmental_profile_freezer_v1",
-    ),
-    "wine_cellar": EnvironmentalProfile(
-        profile_id="wine_cellar",
-        label="Adega de vinhos",
-        analysis_type="environmental_compliance",
-        temperature=MetricBand(12.0, 16.0, 10.0, 18.0, 7.0, 22.0, 0.6),
-        humidity=MetricBand(55.0, 75.0, 45.0, 80.0, 35.0, 90.0, 0.4),
-        ruleset="seiden_environmental_profile_wine_cellar_v1",
-    ),
-    "beer_cooler": EnvironmentalProfile(
-        profile_id="beer_cooler",
-        label="Cervejeira",
-        analysis_type="environmental_compliance",
-        temperature=MetricBand(2.0, 6.0, 0.0, 8.0, -2.0, 12.0, 1.0),
-        humidity=None,
-        ruleset="seiden_environmental_profile_beer_cooler_v1",
-    ),
-}
 
 
 def _metric_score(value: float, band: MetricBand) -> float:
@@ -269,10 +196,10 @@ class EnvironmentalAnalyzer(Analyzer):
         asset_id = _first_text(environment.get("asset_id"), payload.get("asset_id"))
         asset_name = _first_text(environment.get("asset_name"), payload.get("asset_name"))
         requested_profile_id = _first_text(environment.get("profile_id"), payload.get("profile_id"), "human_indoor") or "human_indoor"
-        profile = PROFILES.get(requested_profile_id)
-        profile_fallback = profile is None
-        if profile is None:
-            profile = PROFILES["human_indoor"]
+        profile_override = environment.get("profile_override")
+        if not isinstance(profile_override, dict):
+            profile_override = payload.get("profile_override")
+        profile, profile_fallback = PROFILE_REGISTRY.resolve(requested_profile_id, profile_override)
 
         metric_scores: dict[str, float] = {
             "temperature": round(_metric_score(temperature_c, profile.temperature), 2)
@@ -340,6 +267,26 @@ class EnvironmentalAnalyzer(Analyzer):
                 "metric_scores": metric_scores,
                 "confidence": 1.0,
                 "ruleset": profile.ruleset,
+                "ruleset_source": profile.ruleset_source,
+                "profile_customized": profile.customized,
+                "applied_ranges": {
+                    "temperature": {
+                        "optimal": {"min": profile.temperature.optimal_min, "max": profile.temperature.optimal_max},
+                        "attention": {"min": profile.temperature.attention_min, "max": profile.temperature.attention_max},
+                        "critical": {"min": profile.temperature.critical_min, "max": profile.temperature.critical_max},
+                        "weight": profile.temperature.weight,
+                    },
+                    "humidity": (
+                        {
+                            "optimal": {"min": profile.humidity.optimal_min, "max": profile.humidity.optimal_max},
+                            "attention": {"min": profile.humidity.attention_min, "max": profile.humidity.attention_max},
+                            "critical": {"min": profile.humidity.critical_min, "max": profile.humidity.critical_max},
+                            "weight": profile.humidity.weight,
+                        }
+                        if profile.humidity is not None
+                        else None
+                    ),
+                },
                 "profile_id": requested_profile_id,
                 "resolved_profile_id": profile.profile_id,
                 "profile_label": profile.label,

@@ -1,0 +1,91 @@
+{
+  "profiles": {
+    "human_indoor": {
+      "label": "Conforto humano interno",
+      "analysis_type": "human_comfort",
+      "ruleset": "seiden_environmental_profile_human_indoor_v1",
+      "temperature": {
+        "optimal": {"min": 21.0, "max": 25.0},
+        "attention": {"min": 18.0, "max": 28.0},
+        "critical": {"min": 15.0, "max": 32.0},
+        "weight": 0.5
+      },
+      "humidity": {
+        "optimal": {"min": 40.0, "max": 60.0},
+        "attention": {"min": 30.0, "max": 70.0},
+        "critical": {"min": 20.0, "max": 80.0},
+        "weight": 0.5
+      }
+    },
+    "human_outdoor": {
+      "label": "Ambiente externo",
+      "analysis_type": "informational",
+      "ruleset": "seiden_environmental_profile_human_outdoor_v1",
+      "temperature": {
+        "optimal": {"min": 18.0, "max": 28.0},
+        "attention": {"min": 10.0, "max": 35.0},
+        "critical": {"min": 0.0, "max": 42.0},
+        "weight": 0.7
+      },
+      "humidity": {
+        "optimal": {"min": 35.0, "max": 75.0},
+        "attention": {"min": 20.0, "max": 90.0},
+        "critical": {"min": 10.0, "max": 100.0},
+        "weight": 0.3
+      }
+    },
+    "refrigerator": {
+      "label": "Geladeira",
+      "analysis_type": "environmental_compliance",
+      "ruleset": "seiden_environmental_profile_refrigerator_v1",
+      "temperature": {
+        "optimal": {"min": 2.0, "max": 5.0},
+        "attention": {"min": 0.0, "max": 8.0},
+        "critical": {"min": -2.0, "max": 10.0},
+        "weight": 1.0
+      },
+      "humidity": null
+    },
+    "freezer": {
+      "label": "Freezer",
+      "analysis_type": "environmental_compliance",
+      "ruleset": "seiden_environmental_profile_freezer_v1",
+      "temperature": {
+        "optimal": {"min": -22.0, "max": -18.0},
+        "attention": {"min": -25.0, "max": -15.0},
+        "critical": {"min": -30.0, "max": -12.0},
+        "weight": 1.0
+      },
+      "humidity": null
+    },
+    "wine_cellar": {
+      "label": "Adega de vinhos",
+      "analysis_type": "environmental_compliance",
+      "ruleset": "seiden_environmental_profile_wine_cellar_v1",
+      "temperature": {
+        "optimal": {"min": 12.0, "max": 16.0},
+        "attention": {"min": 10.0, "max": 18.0},
+        "critical": {"min": 7.0, "max": 22.0},
+        "weight": 0.6
+      },
+      "humidity": {
+        "optimal": {"min": 55.0, "max": 75.0},
+        "attention": {"min": 45.0, "max": 80.0},
+        "critical": {"min": 35.0, "max": 90.0},
+        "weight": 0.4
+      }
+    },
+    "beer_cooler": {
+      "label": "Cervejeira",
+      "analysis_type": "environmental_compliance",
+      "ruleset": "seiden_environmental_profile_beer_cooler_v1",
+      "temperature": {
+        "optimal": {"min": 2.0, "max": 6.0},
+        "attention": {"min": 0.0, "max": 8.0},
+        "critical": {"min": -2.0, "max": 12.0},
+        "weight": 1.0
+      },
+      "humidity": null
+    }
+  }
+}
