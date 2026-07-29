@@ -22,6 +22,7 @@ from events import build_analysis_event
 from publishers import WebhookPublisher
 from version import VERSION
 from vision_adapters import create_adapter
+from analyzers import AnalyzerDispatcher, EnvironmentalAnalyzer
 
 
 LOGGER = logging.getLogger("engine")
@@ -54,6 +55,9 @@ class VisionEngine:
         self.ha_client = ha_client
         self.provider = create_adapter(settings)
         self.webhook_publisher = WebhookPublisher(settings.webhook_enabled, settings.webhook_url, settings.webhook_api_key, settings.webhook_timeout_seconds)
+        self.analyzer_dispatcher = AnalyzerDispatcher([EnvironmentalAnalyzer()])
+        self._seen_bridge_event_ids: set[str] = set()
+        self._seen_bridge_event_order: list[str] = []
         self.queue: queue.Queue[AnalysisJob] = queue.Queue(maxsize=500)
         self.stop_event = threading.Event()
         self.worker_thread = threading.Thread(
@@ -144,6 +148,7 @@ class VisionEngine:
             "uptime_seconds": self.uptime_seconds(),
             "home_assistant_api": self.ha_client.available,
             "last_processing_ms": self.last_processing_ms,
+            "analyzers": self.analyzer_dispatcher.names,
         }
 
     def _download(self, url: str) -> tuple[bytes, str, int]:
@@ -474,10 +479,42 @@ class VisionEngine:
             self.stop_event,
         )
 
+    def _remember_bridge_event(self, event_id: str | None) -> bool:
+        """Retorna False quando o evento já foi processado nesta execução."""
+        if not event_id:
+            return True
+        if event_id in self._seen_bridge_event_ids:
+            return False
+        self._seen_bridge_event_ids.add(event_id)
+        self._seen_bridge_event_order.append(event_id)
+        if len(self._seen_bridge_event_order) > 2000:
+            oldest = self._seen_bridge_event_order.pop(0)
+            self._seen_bridge_event_ids.discard(oldest)
+        return True
+
     def _handle_bridge_event(self, event: dict[str, Any]) -> None:
         payload = event.get("data") if isinstance(event.get("data"), dict) else {}
         if payload.get("source") != "seiden_bridge":
             return
+
+        source_event_id = str(payload.get("event_id") or "").strip() or None
+        if not self._remember_bridge_event(source_event_id):
+            LOGGER.debug("Evento Bridge duplicado ignorado: %s", source_event_id)
+            return
+
+        enriched_events = self.analyzer_dispatcher.dispatch(payload)
+        for enriched_event in enriched_events:
+            event_type = str(enriched_event.get("event_type") or "seiden_vision_event")
+            published = self.ha_client.fire_event(event_type, enriched_event)
+            webhook_ok = self.webhook_publisher.publish(enriched_event)
+            LOGGER.info(
+                "Analyzer............ %s | evento=%s | HA=%s | webhook=%s",
+                (enriched_event.get("analysis") or {}).get("analyzer", "unknown"),
+                event_type,
+                "OK" if published else "FALHA",
+                "OK" if webhook_ok else "FALHA" if self.settings.webhook_enabled else "DESABILITADO",
+            )
+
         if payload.get("event_type") != "person_authenticated":
             return
         connection = payload.get("connection") if isinstance(payload.get("connection"), dict) else {}
@@ -492,12 +529,8 @@ class VisionEngine:
             LOGGER.debug("Evento Bridge sem foto ignorado: %s", payload.get("event_id"))
             return
 
-        source_event_id = str(payload.get("event_id") or "").strip() or None
-        if source_event_id and source_event_id == self.last_source_event_id:
-            return
         self.last_source_event_id = source_event_id
         self.last_source_url = str(image_url)
-
         source_name = str(connection.get("name") or self.settings.source_name)
         person_name = subject.get("name") or payload.get("user_name") or raw.get("name")
         person_id = subject.get("external_id") or payload.get("user_id") or raw.get("enrollid")

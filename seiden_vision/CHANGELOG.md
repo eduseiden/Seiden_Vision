@@ -61,3 +61,14 @@
 - Novos sensores gerenciais no Home Assistant.
 - Fuso horário gerencial configurável.
 - Compatibilidade preservada com o banco da 0.3.0.
+
+## 0.6.1
+
+- Introduz a arquitetura extensível de Analyzers no Seiden Vision.
+- Adiciona o Environmental Analyzer para eventos MQTT com temperatura e umidade.
+- Publica evidências canônicas `environment.observation` no Home Assistant e no webhook configurado.
+- Normaliza temperatura para Celsius e umidade para percentual.
+- Classifica cada observação como `comfortable`, `attention` ou `uncomfortable`.
+- Calcula `comfort_score` determinístico de 0 a 100 com regras transparentes.
+- Preserva `correlation.source_event_id` e evita reprocessamento em memória.
+- Expõe os analyzers ativos no endpoint de saúde.

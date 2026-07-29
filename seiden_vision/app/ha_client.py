@@ -89,6 +89,21 @@ class HomeAssistantClient:
                     except Exception:
                         pass
 
+    def fire_event(self, event_type: str, data: dict[str, Any]) -> bool:
+        if not self.available:
+            return False
+        try:
+            response = self.session.post(
+                f"{BASE_URL}/events/{event_type}",
+                json=data,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            return True
+        except requests.RequestException as exc:
+            LOGGER.warning("Falha ao publicar evento %s: %s", event_type, exc)
+            return False
+
     def get_state(self, entity_id: str) -> dict[str, Any] | None:
         if not self.available:
             return None
