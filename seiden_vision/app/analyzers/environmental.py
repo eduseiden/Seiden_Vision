@@ -29,6 +29,21 @@ def _as_float(value: Any) -> float | None:
         return None
 
 
+def _clean_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _first_text(*values: Any) -> str | None:
+    for value in values:
+        text = _clean_text(value)
+        if text is not None:
+            return text
+    return None
+
+
 def _dimension_score(value: float, comfortable_min: float, comfortable_max: float, outer_min: float, outer_max: float) -> float:
     if comfortable_min <= value <= comfortable_max:
         return 50.0
@@ -42,43 +57,90 @@ def _dimension_score(value: float, comfortable_min: float, comfortable_max: floa
 
 
 class EnvironmentalAnalyzer(Analyzer):
-    """Reconhece e normaliza medições ambientais provenientes do Bridge."""
+    """Reconhece e normaliza medições ambientais provenientes do Bridge.
+
+    A identidade cadastrada no Environmental Source Registry do Bridge é sempre
+    priorizada. O tópico MQTT só é usado como fallback para eventos legados.
+    """
 
     name = "environmental"
+
+    @staticmethod
+    def _parts(payload: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+        data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+        raw = payload.get("raw") if isinstance(payload.get("raw"), dict) else {}
+        connection = payload.get("connection") if isinstance(payload.get("connection"), dict) else {}
+        environment = payload.get("environment") if isinstance(payload.get("environment"), dict) else {}
+        measurements = environment.get("measurements") if isinstance(environment.get("measurements"), dict) else {}
+        return data, raw, connection, measurements
+
+    @staticmethod
+    def _temperature(payload: dict[str, Any], data: dict[str, Any], measurements: dict[str, Any]) -> tuple[float | None, str]:
+        canonical = _as_float(measurements.get("temperature_c"))
+        if canonical is None:
+            canonical = _as_float(payload.get("temperature_c"))
+        if canonical is not None:
+            return canonical, "celsius"
+
+        raw_temperature = _as_float(data.get("temperature"))
+        unit = str(data.get("temperature_unit_convert") or "celsius").strip().lower()
+        if raw_temperature is None:
+            return None, unit
+        if unit in {"fahrenheit", "f", "°f"}:
+            return (raw_temperature - 32.0) * 5.0 / 9.0, unit
+        return raw_temperature, unit
+
+    @staticmethod
+    def _humidity(payload: dict[str, Any], data: dict[str, Any], measurements: dict[str, Any]) -> float | None:
+        return (
+            _as_float(measurements.get("humidity_pct"))
+            if _as_float(measurements.get("humidity_pct")) is not None
+            else _as_float(payload.get("humidity_pct"))
+            if _as_float(payload.get("humidity_pct")) is not None
+            else _as_float(data.get("humidity"))
+        )
 
     def can_handle(self, payload: dict[str, Any]) -> bool:
         if payload.get("source") != "seiden_bridge":
             return False
         if payload.get("event_type") != "mqtt.message_received":
             return False
-        data = payload.get("data")
-        return isinstance(data, dict) and _as_float(data.get("temperature")) is not None and _as_float(data.get("humidity")) is not None
+        data, _raw, _connection, measurements = self._parts(payload)
+        temperature, _unit = self._temperature(payload, data, measurements)
+        humidity = self._humidity(payload, data, measurements)
+        return temperature is not None and humidity is not None
 
     def analyze(self, payload: dict[str, Any]) -> dict[str, Any] | None:
         if not self.can_handle(payload):
             return None
 
-        data = payload["data"]
-        raw = payload.get("raw") if isinstance(payload.get("raw"), dict) else {}
-        connection = payload.get("connection") if isinstance(payload.get("connection"), dict) else {}
-        temperature = _as_float(data.get("temperature"))
-        humidity = _as_float(data.get("humidity"))
-        if temperature is None or humidity is None:
+        data, raw, connection, measurements = self._parts(payload)
+        environment = payload.get("environment") if isinstance(payload.get("environment"), dict) else {}
+
+        temperature_c, original_unit = self._temperature(payload, data, measurements)
+        humidity = self._humidity(payload, data, measurements)
+        if temperature_c is None or humidity is None:
             return None
 
-        unit = str(data.get("temperature_unit_convert") or "celsius").strip().lower()
-        if unit in {"fahrenheit", "f", "°f"}:
-            temperature_c = (temperature - 32.0) * 5.0 / 9.0
-        else:
-            temperature_c = temperature
+        original_temperature = _as_float(data.get("temperature"))
+        if original_temperature is None:
+            original_temperature = temperature_c
 
         topic = str(payload.get("topic") or raw.get("topic") or "").strip()
         topic_tail = topic.rsplit("/", 1)[-1].strip() if topic else "Environmental Sensor"
-        source_name = topic_tail or "Environmental Sensor"
-        source_id = _slug(source_name)
 
-        location_name = re.sub(r"(?i)^term[oô]metro\s*", "", source_name).strip() or source_name
-        location_id = _slug(location_name)
+        # Registry do Bridge > campos canônicos no evento > fallback legado pelo tópico.
+        source_name = _first_text(environment.get("source_name"), payload.get("source_name"), topic_tail) or "Environmental Sensor"
+        source_id = _first_text(environment.get("source_id"), payload.get("source_id")) or _slug(source_name)
+
+        fallback_location_name = re.sub(r"(?i)^term[oô]metro[ _-]*", "", source_name).strip() or source_name
+        location_name = _first_text(environment.get("location_name"), payload.get("location_name"), fallback_location_name) or fallback_location_name
+        location_id = _first_text(environment.get("location_id"), payload.get("location_id")) or _slug(location_name)
+
+        description = _first_text(environment.get("description"), payload.get("description"))
+        asset_id = _first_text(environment.get("asset_id"), payload.get("asset_id"))
+        asset_name = _first_text(environment.get("asset_name"), payload.get("asset_name"))
+        profile_id = _first_text(environment.get("profile_id"), payload.get("profile_id"), "human_indoor") or "human_indoor"
 
         temperature_score = _dimension_score(temperature_c, 21.0, 25.0, 18.0, 28.0)
         humidity_score = _dimension_score(humidity, 40.0, 60.0, 30.0, 70.0)
@@ -92,6 +154,12 @@ class EnvironmentalAnalyzer(Analyzer):
             condition = "comfortable"
         else:
             condition = "attention"
+
+        battery_pct = _as_float(measurements.get("battery_pct"))
+        if battery_pct is None:
+            battery_pct = _as_float(payload.get("battery_pct"))
+        if battery_pct is None:
+            battery_pct = _as_float(data.get("battery"))
 
         source_event_id = str(payload.get("event_id") or "").strip() or None
         timestamp = str(payload.get("timestamp") or data.get("last_seen") or _utc_now())
@@ -108,8 +176,13 @@ class EnvironmentalAnalyzer(Analyzer):
                 "source_id": source_id,
                 "source_name": source_name,
                 "source_type": "environment_sensor",
+                "description": description,
                 "location_id": location_id,
                 "location_name": location_name,
+                "asset_id": asset_id,
+                "asset_name": asset_name,
+                "profile_id": profile_id,
+                "identity_source": "bridge_registry" if environment else "mqtt_topic_fallback",
                 "connection_id": payload.get("connection_id") or connection.get("id"),
                 "connector": payload.get("connector") or connection.get("connector"),
                 "topic": topic,
@@ -118,8 +191,8 @@ class EnvironmentalAnalyzer(Analyzer):
                 "temperature": {
                     "value": round(temperature_c, 2),
                     "unit": "celsius",
-                    "original_value": temperature,
-                    "original_unit": unit,
+                    "original_value": original_temperature,
+                    "original_unit": original_unit,
                 },
                 "humidity": {
                     "value": round(humidity, 2),
@@ -132,9 +205,10 @@ class EnvironmentalAnalyzer(Analyzer):
                 "comfort_score": score,
                 "confidence": 1.0,
                 "ruleset": "seiden_environmental_comfort_v1",
+                "profile_id": profile_id,
             },
             "source_health": {
-                "battery_pct": _as_float(data.get("battery")),
+                "battery_pct": battery_pct,
                 "linkquality": _as_float(data.get("linkquality")),
                 "last_seen": data.get("last_seen"),
             },

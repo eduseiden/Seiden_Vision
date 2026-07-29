@@ -1,4 +1,4 @@
-# Seiden Vision 0.7.0
+# Seiden Vision 0.7.1
 
 Camada de percepção do Seiden One. Transforma dados brutos em evidências enriquecidas.
 
@@ -14,4 +14,4 @@ O Vision enriquece uma evidência; não correlaciona o conjunto nem conclui o qu
 
 O Vision reconhece eventos `mqtt.message_received` originados no Seiden Bridge quando `data.temperature` e `data.humidity` estão presentes. O resultado é publicado como evento Home Assistant `environment.observation`, preservando o `source_event_id` original.
 
-A versão 0.7.0 consolida a numeração do add-on, do runtime e da documentação, sem alterar os contratos de eventos existentes.
+A versão 0.7.1 consolida a numeração do add-on, do runtime e da documentação, sem alterar os contratos de eventos existentes.

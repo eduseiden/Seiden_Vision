@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.1 — Preservação da identidade ambiental
+
+- prioriza nomes amigáveis, local, ativo, descrição e perfil recebidos do Bridge 0.12.0;
+- usa o tópico MQTT apenas como fallback para eventos legados;
+- prioriza medições canônicas `temperature_c`, `humidity_pct` e `battery_pct`;
+- inclui `identity_source` e `profile_id` no evento enriquecido;
+- mantém compatibilidade com o schema 2.0 e com eventos ambientais anteriores.
+
 ## 0.7.0 — Consolidação de versão e documentação
 
 - Alinha a versão exibida no add-on, no runtime, no log de inicialização e na documentação.
