@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0 — Consolidação de versão e documentação
+
+- Alinha a versão exibida no add-on, no runtime, no log de inicialização e na documentação.
+- Atualiza o User-Agent do publicador webhook para a versão atual.
+- Consolida a documentação do Environmental Analyzer e dos eventos `vision.analysis_completed` e `environment.observation`.
+- Remove artefatos locais de cache Python do pacote de distribuição.
+- Nenhuma alteração funcional nos analyzers ou no schema canônico 2.0.
+
 ## 0.6.0
 - Adoção do Seiden One Platform Standard v1.0.
 - Eventos de enriquecimento passam a emitir timestamps UTC canônicos com sufixo Z.
