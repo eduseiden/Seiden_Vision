@@ -1,5 +1,5 @@
 name: Seiden Vision
-version: 0.8.2
+version: 0.8.3
 slug: seiden_vision
 description: Camada de percepção e enriquecimento de evidências do Seiden One
 url: https://github.com/eduseiden/Seiden_Vision
@@ -19,6 +19,8 @@ panel_icon: mdi:face-recognition
 panel_title: Seiden Vision
 map:
 - type: addon_config
+  read_only: false
+- type: homeassistant_config
   read_only: false
 options:
   log_level: info

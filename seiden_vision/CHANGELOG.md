@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.3 — Perfis acessíveis pelo File Editor
+
+- move o arquivo autoritativo para `/config/seiden_vision/environmental_profiles.json`, visível diretamente no File Editor;
+- monta a configuração principal do Home Assistant em `/homeassistant` dentro do contêiner, mantendo `addon_config` para banco e imagens;
+- migra automaticamente o JSON da 0.8.2 sem perder personalizações;
+- preserva o arquivo antigo como `environmental_profiles.migrated-0.8.2.backup.json`;
+- atualiza README da raiz, DOCS, CHANGELOG, versão do runtime, log de inicialização e User-Agent;
+- remove da documentação as instruções duplicadas e obsoletas da 0.8.1;
+- mantém o contrato de eventos e o schema canônico 2.0 sem migração de banco.
+
 ## 0.8.2 — Arquivo autoritativo de perfis ambientais
 
 - cria automaticamente `/config/environmental_profiles.json` na primeira inicialização;

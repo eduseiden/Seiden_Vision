@@ -1,102 +1,97 @@
-# Seiden Vision 0.8.0
+# Seiden Vision 0.8.3
 
 Camada de percepção do Seiden One. Transforma dados brutos em evidências enriquecidas.
 
 ## Arquitetura unificada
 
-O Vision consome exclusivamente `seiden_bridge_event`. Não há mais leitura de `sensor.seiden_last_person`, polling de entidade ou modo híbrido.
+O Vision consome exclusivamente `seiden_bridge_event`. Não há leitura de `sensor.seiden_last_person`, polling de entidade ou modo híbrido.
 
-Processa eventos `person_authenticated` do conector EVO que contenham `operation.photo_url`. A saída enriquecida preserva o `event_id` do Bridge em `source_event_id` e é publicada como `vision.analysis_completed`.
+Eventos `person_authenticated` com `operation.photo_url` podem produzir `vision.analysis_completed`. Eventos ambientais originados na Bridge podem produzir `environment.observation`, preservando a correlação por `source_event_id`.
 
-O Vision enriquece uma evidência; não correlaciona o conjunto nem conclui o que ocorreu na operação.
+O Vision interpreta e enriquece uma evidência; não realiza a correlação operacional completa.
 
 ## Environmental Analyzer
 
-O Vision reconhece eventos `mqtt.message_received` originados no Seiden Bridge quando `data.temperature` e `data.humidity` estão presentes. O resultado é publicado como evento Home Assistant `environment.observation`, preservando o `source_event_id` original.
+O analisador ambiental preserva a identidade definida no Environmental Source Registry da Bridge. `source_name`, `location_name`, `asset_*`, `profile_id` e `description` têm prioridade sobre nomes derivados do tópico MQTT.
 
-A versão 0.8.0 preserva a identidade definida no Environmental Source Registry do Bridge. `source_name`, `location_name`, `asset_*`, `profile_id` e `description` passam a ter prioridade sobre nomes derivados do tópico MQTT. Eventos legados continuam usando o tópico como fallback.
+Cada evento é interpretado segundo o `profile_id` informado. O resultado inclui, entre outros campos:
 
-## Perfis ambientais configuráveis
+- `analysis_type`;
+- `environmental_score`;
+- `comfort_score` para compatibilidade;
+- `condition`;
+- `operational_state`;
+- `metric_scores`;
+- `reason_codes`;
+- `applied_ranges`;
+- `ruleset_source`.
 
-A versão 0.8.2 usa um único arquivo persistente como fonte dos parâmetros ambientais:
+## Arquivo de perfis ambientais
+
+O JSON autoritativo e editável fica, no File Editor do Home Assistant, em:
 
 ```text
-/config/environmental_profiles.json
+/config/seiden_vision/environmental_profiles.json
 ```
 
-No Home Assistant, ele fica visível em:
+Dentro do contêiner do Vision, o caminho correspondente é:
 
 ```text
-/addon_configs/<id>_seiden_vision/environmental_profiles.json
+/homeassistant/seiden_vision/environmental_profiles.json
 ```
 
-Na primeira inicialização, o Vision cria automaticamente esse arquivo com todos os perfis padrão. Depois disso, basta editar os valores e reiniciar o add-on. Atualizações não sobrescrevem o arquivo persistente.
-
-O arquivo distribuído com a imagem existe apenas como modelo de instalação inicial:
+Na primeira inicialização, o Vision cria o arquivo usando o modelo distribuído em:
 
 ```text
 /app/profiles/environmental_profiles.default.json
 ```
 
-Não há uma segunda cópia das faixas no código Python. O JSON persistente é autoritativo.
+As faixas não ficam duplicadas no código Python. Depois da criação, o JSON persistente passa a ser a fonte dos parâmetros. O Vision não o sobrescreve em atualizações.
 
-A ordem das faixas deve ser:
+### Migração da 0.8.2
+
+Caso exista:
+
+```text
+/addon_configs/<id>_seiden_vision/environmental_profiles.json
+```
+
+a 0.8.3 copia o conteúdo para `/config/seiden_vision/environmental_profiles.json` antes de carregar os perfis. Após a cópia bem-sucedida, o arquivo antigo é preservado como:
+
+```text
+environmental_profiles.migrated-0.8.2.backup.json
+```
+
+Portanto, personalizações existentes não são perdidas. A partir da 0.8.3, somente o arquivo em `/config/seiden_vision` é autoritativo.
+
+### Validação
+
+Para cada métrica, a ordem obrigatória é:
 
 ```text
 critical.min <= attention.min <= optimal.min <= optimal.max <= attention.max <= critical.max
 ```
 
-O evento `environment.observation` informa as faixas efetivamente usadas em `analysis.applied_ranges`. A origem será `persistent_file` ou `source_override`.
+O perfil `human_indoor` é obrigatório porque funciona como fallback para `profile_id` desconhecido. Pesos não podem ser negativos.
 
-Overrides individuais enviados pela Bridge continuam tendo prioridade sobre o arquivo persistente.
-
-## Perfis ambientais configuráveis
-
-A versão 0.8.1 mantém os perfis padrão em:
-
-```text
-/app/profiles/environmental_profiles.json
-```
-
-Para alterar faixas padrão ou criar perfis próprios sem modificar o código, crie:
-
-```text
-/config/environmental_profiles.json
-```
-
-O arquivo customizado é mesclado com a biblioteca padrão. Portanto, é possível sobrescrever apenas os campos necessários:
-
-```json
-{
-  "profiles": {
-    "human_indoor": {
-      "temperature": {
-        "optimal": {"min": 22.0, "max": 24.0}
-      }
-    }
-  }
-}
-```
-
-Também é possível criar um perfil completo, como `server_room`. Um exemplo está em:
-
-```text
-/app/profiles/environmental_profiles.example.json
-```
+Depois de editar o arquivo, reinicie o add-on. Um JSON inválido ou faixas incoerentes impedem o carregamento dos perfis e produzem uma mensagem explícita no log.
 
 ### Override por fonte
 
-Quando a Bridge enviar `environment.profile_override`, o Vision aplica esse conteúdo sobre o perfil resolvido. Exemplo:
+Quando a Bridge envia `environment.profile_override`, o conteúdo é aplicado sobre o perfil resolvido. Nesse caso, o evento informa:
 
-```json
-{
-  "profile_id": "wine_cellar",
-  "profile_override": {
-    "temperature": {
-      "optimal": {"min": 13.0, "max": 15.0}
-    }
-  }
-}
+```yaml
+ruleset_source: source_override
+profile_customized: true
 ```
 
-O evento `environment.observation` informa as faixas efetivamente usadas em `analysis.applied_ranges` e a origem em `analysis.ruleset_source`.
+Sem override individual, a origem é:
+
+```yaml
+ruleset_source: persistent_file
+profile_customized: false
+```
+
+## Persistência interna
+
+O banco `seiden_vision.db` e a pasta `images` continuam na área própria do add-on (`addon_config`). Apenas o JSON destinado à edição humana foi movido para a configuração principal do Home Assistant.

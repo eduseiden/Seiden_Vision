@@ -1,17 +1,45 @@
-# Seiden Vision 0.7.1
+# Seiden Vision 0.8.3
 
-Camada de percepção do Seiden One. Transforma dados brutos em evidências enriquecidas.
+Camada de percepção e enriquecimento de evidências do Seiden One.
 
-## Arquitetura unificada
+## Arquitetura
 
-O Vision consome exclusivamente `seiden_bridge_event`. Não há mais leitura de `sensor.seiden_last_person`, polling de entidade ou modo híbrido.
+O Vision consome eventos unificados da Seiden Bridge, interpreta as evidências recebidas e publica resultados canônicos para o Home Assistant, webhooks e Seiden FLOW.
 
-Processa eventos `person_authenticated` do conector EVO que contenham `operation.photo_url`. A saída enriquecida preserva o `event_id` do Bridge em `source_event_id` e é publicada como `vision.analysis_completed`.
+Principais saídas:
 
-O Vision enriquece uma evidência; não correlaciona o conjunto nem conclui o que ocorreu na operação.
+- `vision.analysis_completed` para análises de imagem;
+- `environment.observation` para interpretação ambiental por perfil.
 
-## Environmental Analyzer
+O Vision enriquece evidências. A correlação operacional e a apresentação consolidada pertencem às demais camadas do Seiden One.
 
-O Vision reconhece eventos `mqtt.message_received` originados no Seiden Bridge quando `data.temperature` e `data.humidity` estão presentes. O resultado é publicado como evento Home Assistant `environment.observation`, preservando o `source_event_id` original.
+## Perfis ambientais
 
-A versão 0.7.1 consolida a numeração do add-on, do runtime e da documentação, sem alterar os contratos de eventos existentes.
+A versão 0.8.3 mantém todos os parâmetros ambientais em um arquivo JSON autoritativo e editável pelo usuário:
+
+```text
+/config/seiden_vision/environmental_profiles.json
+```
+
+Esse é o caminho visto pelo **File Editor** do Home Assistant. Dentro do contêiner do add-on, o mesmo arquivo é acessado em:
+
+```text
+/homeassistant/seiden_vision/environmental_profiles.json
+```
+
+Na primeira inicialização, o Vision cria o arquivo com os perfis padrão. Ao atualizar da 0.8.2, o arquivo existente em `addon_configs` é migrado automaticamente, preservando todas as personalizações.
+
+Perfis distribuídos:
+
+- `human_indoor`
+- `human_outdoor`
+- `refrigerator`
+- `freezer`
+- `wine_cellar`
+- `beer_cooler`
+
+Após editar o JSON, reinicie o add-on para aplicar as novas faixas. Overrides enviados por uma fonte da Bridge continuam tendo prioridade sobre o perfil base.
+
+## Persistência
+
+O banco de dados e as imagens permanecem na área própria do add-on. Somente o arquivo destinado à edição manual é mantido em `/config/seiden_vision`, para aparecer naturalmente no File Editor.

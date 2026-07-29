@@ -13,7 +13,11 @@ from typing import Any
 LOGGER = logging.getLogger(__name__)
 
 FACTORY_PROFILES_PATH = Path(__file__).resolve().parent / "profiles" / "environmental_profiles.default.json"
-PERSISTENT_PROFILES_PATH = Path("/config/environmental_profiles.json")
+ADDON_CONFIG_DIR = Path(os.getenv("SEIDEN_ADDON_CONFIG_DIR", "/config"))
+HOMEASSISTANT_CONFIG_DIR = Path(os.getenv("SEIDEN_HOMEASSISTANT_CONFIG_DIR", "/homeassistant"))
+PERSISTENT_PROFILES_PATH = HOMEASSISTANT_CONFIG_DIR / "seiden_vision" / "environmental_profiles.json"
+LEGACY_PROFILES_PATH = ADDON_CONFIG_DIR / "environmental_profiles.json"
+LEGACY_BACKUP_PATH = ADDON_CONFIG_DIR / "environmental_profiles.migrated-0.8.2.backup.json"
 CONFIGURATION_MODE = "authoritative"
 
 
@@ -163,10 +167,42 @@ def _validate_profiles(profiles: dict[str, Any], source: str) -> None:
         _build_profile(profile_id, raw, source, customized=(source != "persistent_default"))
 
 
+def _migrate_legacy_file_if_needed() -> bool:
+    """Move o JSON da pasta privada do add-on para a pasta editável do Home Assistant."""
+    if PERSISTENT_PROFILES_PATH.exists() or not LEGACY_PROFILES_PATH.exists():
+        return False
+
+    legacy_document = _read_document(LEGACY_PROFILES_PATH)
+    _write_document_atomic(PERSISTENT_PROFILES_PATH, legacy_document)
+
+    try:
+        if not LEGACY_BACKUP_PATH.exists():
+            os.replace(LEGACY_PROFILES_PATH, LEGACY_BACKUP_PATH)
+            LOGGER.info(
+                "Arquivo legado preservado como backup em %s",
+                LEGACY_BACKUP_PATH,
+            )
+    except OSError as exc:
+        LOGGER.warning(
+            "O perfil foi migrado, mas não foi possível renomear o arquivo legado %s: %s",
+            LEGACY_PROFILES_PATH,
+            exc,
+        )
+
+    LOGGER.info(
+        "Perfis ambientais migrados de %s para %s",
+        LEGACY_PROFILES_PATH,
+        PERSISTENT_PROFILES_PATH,
+    )
+    return True
+
+
 def _prepare_persistent_document() -> dict[str, Any]:
     factory_document = _read_document(FACTORY_PROFILES_PATH)
     factory_profiles = factory_document["profiles"]
     _validate_profiles(factory_profiles, "factory")
+
+    _migrate_legacy_file_if_needed()
 
     if not PERSISTENT_PROFILES_PATH.exists():
         _write_document_atomic(PERSISTENT_PROFILES_PATH, factory_document)
