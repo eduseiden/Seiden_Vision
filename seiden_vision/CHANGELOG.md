@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.0 — Environmental Profiles
+
+- adiciona interpretação ambiental por `profile_id` recebido da Seiden Bridge;
+- inclui os perfis fixos `human_indoor`, `human_outdoor`, `refrigerator`, `freezer`, `wine_cellar` e `beer_cooler`;
+- adiciona `analysis_type`, `environmental_score`, `operational_state`, `metric_scores` e `reason_codes`;
+- preserva `comfort_score` e `condition` para compatibilidade com o FLOW atual;
+- aceita sensores somente de temperatura quando o perfil não utiliza umidade;
+- perfis desconhecidos usam `human_indoor` como fallback explícito e rastreável;
+- mantém o contrato canônico 2.0 e não exige migração de banco.
+
 ## 0.7.1 — Preservação da identidade ambiental
 
 - prioriza nomes amigáveis, local, ativo, descrição e perfil recebidos do Bridge 0.12.0;

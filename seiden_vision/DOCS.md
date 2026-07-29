@@ -1,4 +1,4 @@
-# Seiden Vision 0.7.1
+# Seiden Vision 0.8.0
 
 Camada de percepção do Seiden One. Transforma dados brutos em evidências enriquecidas.
 
@@ -14,4 +14,12 @@ O Vision enriquece uma evidência; não correlaciona o conjunto nem conclui o qu
 
 O Vision reconhece eventos `mqtt.message_received` originados no Seiden Bridge quando `data.temperature` e `data.humidity` estão presentes. O resultado é publicado como evento Home Assistant `environment.observation`, preservando o `source_event_id` original.
 
-A versão 0.7.1 preserva a identidade definida no Environmental Source Registry do Bridge. `source_name`, `location_name`, `asset_*`, `profile_id` e `description` passam a ter prioridade sobre nomes derivados do tópico MQTT. Eventos legados continuam usando o tópico como fallback.
+A versão 0.8.0 preserva a identidade definida no Environmental Source Registry do Bridge. `source_name`, `location_name`, `asset_*`, `profile_id` e `description` passam a ter prioridade sobre nomes derivados do tópico MQTT. Eventos legados continuam usando o tópico como fallback.
+
+## Perfis ambientais 0.8.0
+
+O `profile_id` cadastrado na Seiden Bridge define como a medição é interpretada. Perfis disponíveis: `human_indoor`, `human_outdoor`, `refrigerator`, `freezer`, `wine_cellar` e `beer_cooler`.
+
+A análise enriquecida inclui `analysis_type`, `environmental_score`, `operational_state`, scores por métrica e códigos de motivo. O campo `comfort_score` permanece como alias de compatibilidade durante a evolução do FLOW.
+
+Os presets são referências operacionais iniciais e serão configuráveis em versão posterior. Um perfil desconhecido não interrompe o processamento: ele usa `human_indoor` como fallback e marca `profile_fallback: true`.
