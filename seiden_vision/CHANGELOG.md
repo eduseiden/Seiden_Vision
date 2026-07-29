@@ -1,6 +1,11 @@
 # Changelog
 
-## 0.5.0 — Evento unificado sem fallback legado
+## 0.6.0
+- Adoção do Seiden One Platform Standard v1.0.
+- Eventos de enriquecimento passam a emitir timestamps UTC canônicos com sufixo Z.
+- Responsabilidade do módulo documentada como percepção e enriquecimento de evidências.
+
+## 0.6.0 — Evento unificado sem fallback legado
 
 - Remove `source_mode`, polling de entidade e `sensor.seiden_last_person`.
 - Consome exclusivamente `seiden_bridge_event`.

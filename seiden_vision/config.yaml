@@ -1,7 +1,7 @@
 name: Seiden Vision
-version: 0.5.0
+version: 0.6.0
 slug: seiden_vision
-description: Plataforma local de orquestração e análise de imagens
+description: Camada de percepção e enriquecimento de evidências do Seiden One
 url: https://github.com/eduseiden/Seiden_Vision
 stage: experimental
 startup: application

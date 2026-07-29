@@ -14,7 +14,7 @@ def build_analysis_event(record: dict[str, Any], job: Any) -> dict[str, Any]:
         "event_id": record.get("event_id"),
         "event_type": "vision.analysis_completed",
         "source": "seiden_vision",
-        "timestamp": record.get("created_at") or datetime.now(timezone.utc).isoformat(),
+        "timestamp": record.get("created_at") or datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "correlation": {
             "source_event_id": getattr(job, "source_event_id", None),
             "capture_id": getattr(job, "capture_id", None),
